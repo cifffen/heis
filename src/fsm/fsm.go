@@ -2,20 +2,22 @@ package fsm
 
 import (
 	"../drivers"
+	"../orderHandler"
 )
 
 type(
 	Event int
 	State int
+	Direction int
 )
 const (
-	Down = -300
+	Down Direction = -300
 	Up = 300
 	Stop = 0
 )
 const(
-	FloorReached Event =iota
-    TimerOut
+	OrderReached Event =iota
+    TimerFinished
 	NewOrder
 )
 const (
@@ -32,14 +34,16 @@ func InitElev() int{
 	drivers.ElevSetSpeed(Down)
 	for ElevGetFloorSensorSignal() !=1 {
 	}
+	orderHandler.InitOrderHandler(ElevGetFloorSensorSignal)
 	drivers.ElevSetSpeed(Stop)
 	state = Idle
 	return 1
 }
-
-func EventHandler()(){
-	
+func FloorReach(event chan bool){
+	if (floor == 1)
+		event <- true
 }
+
 func StateMachine(event Event)(){
 	switch state{
 		case Idle:
@@ -50,13 +54,13 @@ func StateMachine(event Event)(){
 			}
 		case Runing:
 			switch event{
-				case atOrder:
+				case OrderReached:
 				
 				default:
 			}
 		case AtFloor:
 			switch event{
-				case TimerOut:
+				case TimerFinished:
 				
 				default:
 			}
