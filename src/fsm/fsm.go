@@ -2,19 +2,14 @@ package fsm
 
 import (
 	"../drivers"
-	"../orderHandler"
+	"../orderMod"
 )
 
 type(
 	Event int
 	State int
-	Direction int
 )
-const (
-	Down Direction = -300
-	Up = 300
-	Stop = 0
-)
+
 const(
 	OrderReached Event =iota
     TimerFinished
@@ -26,16 +21,16 @@ const (
 	AtFloor
 )
 var state State
-
+var DoorTimer <-chan time.Time 
 func InitElev() int{
 	if drivers.ElevInit() ==0 {  //IO init failed
 		return 0
-	}else{
-	drivers.ElevSetSpeed(Down)
+	} else {
+	drivers.ElevSetSpeed(int(orderMod.Down))
 	for ElevGetFloorSensorSignal() !=1 {
 	}
-	orderHandler.InitOrderHandler(ElevGetFloorSensorSignal)
-	drivers.ElevSetSpeed(Stop)
+	orderMod.InitOrderMod(ElevGetFloorSensorSignal)
+	drivers.ElevSetSpeed(int(orderMod.Stop))
 	state = Idle
 	return 1
 }
@@ -49,19 +44,27 @@ func StateMachine(event Event)(){
 		case Idle:
 			switch event{
 				case NewOrder:
-				
+					elevDrivers.ElevSetSpeed(int(orderMod.GetDir()))
+					state = Runing
 				default:
 			}
 		case Runing:
 			switch event{
 				case OrderReached:
-				
+					elevDrivers.ElevSetSpeed(int(orderMod.Stop))
+					DoorTimer = time.After(time.Second*3)
+					state=AtFloor
 				default:
 			}
 		case AtFloor:
 			switch event{
 				case TimerFinished:
-				
+					direction = orderMod.GetDir()
+					if(direction==orderMod.Stop){
+						state=Idle
+					} else {
+						state=Runing
+						elevDrivers.ElevSetSpeed(int(direction))
 				default:
 			}
 		}
