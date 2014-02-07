@@ -106,6 +106,6 @@ func GetDirection() Direction{
 				else if(firstOrderFloor==previousFloor){
 					return Stop;
 				}
-			}
+			}s
 	}
 }
