@@ -1,6 +1,12 @@
-package orderHandler
+package orderMod
 
+type Direction int
 
+const (
+	Down Direction = -300
+	Up = 300
+	Stop = 0
+)
 
 const Floors:=4
 
@@ -8,25 +14,27 @@ var orderMatrix[Floors][3] int
 var direction Direction
 var previousFloor int
 
-func InitOrderHandler(floor int)(){
+func InitOrderMod(floor int)(){
 	direction = Stop
 	previousFloor=floor
 }
 
-func GetOrders(eventChannel)(){  
-	for{
-		for (i:=0;i<Floors;i++){
-			for( j:=0;j<3;j++){
+func GetOrders(eventChannel chan)(){  
+	var orderMade bool
+	for {
+		for i:=0;i<Floors;i++{
+			for j:=0;j<3;j++{
 				if((i!=0 && i!=Floors)||(i==0 && j!=1)||(i==Floors && j!=0)){   // Statement that makes sure that we don't check the Down button at the groud floor and 
 					if ElevGetButtonSignal(j, i)==1 && orderMatrix[i][j]!=1{                 // the Up button at the top floor, as they don't exist.
 						orderMatrix[i][j]=elevGetButtonSignal(j, i)
-						temp := true
+						orderMade = true
 					}
 				}
 			}
 		}
-		if temp{
+		if orderMade{
 			eventChannel <- true
+			orderMade=false
 		}
 	}
 		
@@ -69,43 +77,81 @@ func AtOrder(eventChannel chan)(){
 	}
 }
 
-func GetDirection() Direction{
+func GetDir() Direction{
 
 	switch direction{
 		case Up:
-			for(i=previousFloor; i<Floors;i++){
-				if((orderMatrix[i][0] || orderMatrix[i][2]) && previousFloor!=Floors-1){ // Go further Up if an order is made from the panel or Up button
-					return Up													 // to a floor higher Up than the current floor.
+			for i=previousFloor; i<Floors;i++{
+				if((orderMatrix[i][0] || orderMatrix[i][2]) && previousFloor!=Floors-1){ // Go further Up if an order is made from the panel or Up button to a floor higher Up than the current floor.
+					direction = Up
+					return Up													 
 				}
 			}
-			for(i=previousFloor; i>=0; i--){
-				if(orderMatrix[i][1] || orderMatrix[i][2]){    // If there are no orders further Up, go Down if there are any orders made there.
+			for i=previousFloor; i>=0; i--{
+				if(orderMatrix[i][1] || orderMatrix[i][2]){    // If there are no orders further Up, go Down if there are any orders there.
+					direction=Down
 					return Down
 				}
-			}return Stop;
+			}
+			for i:=0;i<Floors; i++ {
+				for j:=0;j<3;j++{
+					if(OrderMatrix[i][j]==1){
+						if(i>previousFloor){
+							direction = Up
+							return Up
+						} else {
+							direction = Down
+							return Down
+						}
+					}
+				}
+			}
+			direction=Stop
+			return Stop;
 		
 		case Down:
-			for(i=previousFloor; i>=0;i--){
-				if((orderMatrix[i][1] || orderMatrix[i][2])&& previousFloor!=0){      // Go further Down if an order is made from the panel or Down button 
-					return Down											// to a floor lower than the current floor.
+			for i=previousFloor; i>=0;i--{
+				if((orderMatrix[i][1] || orderMatrix[i][2])&& previousFloor!=0){      // Go further Down if an order is made from the panel or Down button to a floor lower than the current floor.
+					direction=Down
+					return Down											
 				}
 			}
-			for(i=previousFloor; i<Floors; i++){  // If there are no orders further Down, go Up if there are any orders made there.
+			for i=previousFloor; i<Floors; i++{  // If there are no orders further Down, go Up if there are any orders made there.
 				if(orderMatrix[i][0] || orderMatrix[i][2]){
+					direction=Up
 					return Up
-				}
-			}return Stop
-		case Stop:                    
-			if(firstOrderFloor!= -1){
-				if(firstOrderFloor>previousFloor){
-					return Up
-				}
-				else if(firstOrderFloor<previousFloor){
-					return Down;
-				}
-				else if(firstOrderFloor==previousFloor){
-					return Stop;
 				}
 			}
+			for i:=0;i<Floors; i++ {
+				for j:=0;j<3;j++{
+					if(OrderMatrix[i][j]==1){
+						if(i>previousFloor){
+							direction = Up
+							return Up
+						} else {
+							direction = Down
+							return Down
+						}
+					}
+				}
+			}
+			direction=Stop
+			return Stop
+		case Stop:
+			if(firstOrderFloor!= -1){
+			for i:=0;i<Floors; i++ {
+				for j:=0;j<3;j++{
+					if(OrderMatrix[i][j]==1){
+						if(i>previousFloor){
+							direction = Up
+							return Up
+						} else {
+							direction = Down
+							return Down
+						}
+					}
+				}
+			}
+			return Stop;
 	}
 }
