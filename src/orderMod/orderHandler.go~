@@ -27,8 +27,9 @@ func InitOrderMod(floor int)(){
 func GetOrders(eventChannel chan bool)(){  
 	var orderMade bool
 	for {
-		fmt.Printf("GetOrders for løkke start\n")
+
 		for i:=0;i<Floors;i++{
+			
 			for j:=0;j<3;j++{
 				if((i!=0 && i!=Floors-1)||(i==0 && j!=1)||(i==Floors-1 && j!=0)){   // Statement that makes sure that we don't check the Down button at the groud floor and 
 					if drivers.ElevGetButtonSignal(j, i)==1 && orderMatrix[i][j]!=1{                 // the Up button at the top floor, as they don't exist.

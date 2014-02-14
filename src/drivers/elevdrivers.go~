@@ -9,10 +9,10 @@ package drivers
 import "C"
 
 
-//type TagElevLampType int
+type TagElevLampType int
 
 const(
-	ButtonCallUp  = iota
+	ButtonCallUp TagElevLampType = iota
 	ButtonCallDown
 	ButtonCommand
 )
@@ -41,7 +41,7 @@ func ElevSetFloorIndicator(floor int){
 	C.elev_set_floor_indicator(C.int(floor))
 }
 
-func ElevSetButtonLamp(button int, floor int, value int){
+func ElevSetButtonLamp(button TagElevLampType, floor int, value int){
 	C.elev_set_button_lamp(C.int(button),C.int(floor),C.int(value))
 }
 

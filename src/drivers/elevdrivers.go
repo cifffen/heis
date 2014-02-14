@@ -29,7 +29,7 @@ func ElevGetFloorSensorSignal() int{
 	return int(C.elev_get_floor_sensor_signal())
 }
 
-func ElevGetButtonSignal(button TagElevLampType, floor int) int{
+func ElevGetButtonSignal(button int, floor int) int{
 	return int(C.elev_get_button_signal(C.int(button),C.int(floor)))
 }
 

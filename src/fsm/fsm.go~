@@ -53,7 +53,7 @@ func StateMachine(event Event)(){
 			switch event{
 				case OrderReached:
 					drivers.ElevSetSpeed(int(orderMod.Stop))
-					DoorTimer = time.After(time.Second*3)
+					DoorTimer = time.After(time.Second*0)
 					state=AtFloor
 				default:
 			}
