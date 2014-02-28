@@ -18,48 +18,66 @@ const Floors = 4
 var orderMatrix[Floors][3] int
 var direction Direction
 var previousFloor int
+var orderCount int 					// Keeps track of the number of active orders.
 
 func InitOrderMod(floor int)(){
 	direction = Stop
 	previousFloor=floor
+	orderCount=0
 }
 
-func GetOrders(eventChannel chan bool)(){  
+func isOrderMatrixEmpty() bool{
+	if orderCount==0{
+		return true
+	}else{
+		return false
+	}
+}
+
+func returnDirection() (Direction){
+	return direction
+}
+
+func GetOrders(eventChannel<- chan bool)(){  
 	var orderMade bool
-	for {
-		fmt.Printf("GetOrders for løkke start\n")
-		for i:=0;i<Floors;i++{
-			for j:=0;j<3;j++{
-				if((i!=0 && i!=Floors-1)||(i==0 && j!=1)||(i==Floors-1 && j!=0)){   // Statement that makes sure that we don't check the Down button at the groud floor and 
-					if drivers.ElevGetButtonSignal(j, i)==1 && orderMatrix[i][j]!=1{                 // the Up button at the top floor, as they don't exist.
-						orderMatrix[i][j]=1
-						orderMade = true
+	for i:=0;i<Floors;i++{
+		for j:=0;j<3;j++{
+			if((i!=0 && i!=Floors-1)||(i==0 && j!=1)||(i==Floors-1 && j!=0)){   // Statement that makes sure that we don't check the Down button at the groud floor and 
+				if drivers.ElevGetButtonSignal(j, i)==1 && orderMatrix[i][j]!=1{                // the Up button at the top floor, as they don't exist.
+					orderMatrix[i][j]=1
+					if orderCount==0 {
+						eventChannel <- true
 					}
+					orderCount++
 				}
 			}
 		}
-		if orderMade{
-			fmt.Printf("Før true\n")
-			eventChannel <- true
-			fmt.Printf("Etter true\n")
-			orderMade=false
-		}
-		fmt.Printf("GetOrders for løkke end\n")
-	}
-		
+	}	
 }
 func DeleteFloorOrders(floor int)(){ 
-	orderMatrix[floor][2]=0;
+	if orderMatrix[floor][2]==1 {
+		orderMatrix[floor][2]=0
+		ordercount--
+	}
 	switch direction{
 		case Up:
-			orderMatrix[floor][0]=0;  // Deletes the order from the Up button at the given floor.
+			if orderMatrix[floor][0]==1 {
+				orderMatrix[floor][0]=0
+				orderCount--
+			}
 		case Down:
-			orderMatrix[floor][1]=0;  // Deletes the order from the Down button at the given floor.
+			if orderMatrix[floor][1]==1 {
+				orderMatrix[floor][1]=0
+				orderCount--
+			}
 	}
 	
 }
 
-func AtOrder(eventChannel chan bool)(){ 
+func AtOrder(eventChannel chan bool)(){
+
+
+	/*
 	for{
 
 		floor := drivers.ElevGetFloorSensorSignal()
@@ -88,6 +106,7 @@ func AtOrder(eventChannel chan bool)(){
 		}
 
 	}
+	*/
 }
 
 func GetDir() Direction{
