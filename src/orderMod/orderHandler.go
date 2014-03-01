@@ -32,6 +32,7 @@ var orderCount int 				// Keeps track of the number of active orders.
 var firstOrderFloor int				// Keeps the floor where the first order came when the elevator was Idle	
 
 func InitOrderMod(floor int)(){
+    fmt.Printf("ordermat %d \n", orderMatrix[1][1])
 	direction = Stop
 	prevFloor=floor
 	orderCount=0
@@ -49,43 +50,52 @@ func IsOrderMatrixEmpty() bool{
 func ReturnDirection() (Direction){   //Returns current direction. 
 	return direction
 }
-func CheckForEvents(orderReachedEvent<- chan bool, newOrderEvent<- chan bool) (){
+//syncChan chan<- bool
+func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool) (){
 	for {
-		GetOrders(newOrderEvent)
-		AtOrder(orderReachedEvent)
-	}
+	    //fmt.Printf("hæææ? \n")
+		orderReachedEvent <- AtOrder()
+		newOrderEvent <- GetOrders()
+
+	}   
 }
 
-func GetOrders(eventChannel<- chan bool)(){  
-	var orderMade bool
+func GetOrders()bool{
+    firstOrderEvent :=false 
 	for i:=0;i<Floors;i++{
 		for j:=0;j<3;j++{
 			if((i!=0 && i!=Floors-1)||(i==0 && j!=1)||(i==Floors-1 && j!=0)){   // Statement that makes sure that we don't check the Down button at the groud floor and 
 				if drivers.ElevGetButtonSignal(j, i)==1 && orderMatrix[i][j]!=1{    // the Up button at the top floor, as they don't exist.
-					orderMatrix[i][j]=1
+					orderMatrix[i][j] = 1
+					drivers.ElevSetButtonLamp(drivers.TagElevLampType(j), i, 1)
 					if orderCount==0 {        	//set  newOrderEvent if there is made an order to an empty orderMatrix
-						eventChannel <- true
+						firstOrderEvent = true
+						fmt.Printf("newOrder \n")
 						firstOrderFloor = i		//remember where to first order was made for. Might not be necessary with more elevators.
 					}
 					orderCount++				// count number of active orders.
 				}
 			}
 		}
-	}	
+	}
+	return firstOrderEvent	
 }
 func DeleteFloorOrders(floor int)(){ 
 	if orderMatrix[floor][2]==1 {
 		orderMatrix[floor][2]=0
-		ordercount--
+		drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), floor, 0)
+		orderCount--
 	}
 	switch direction{
 		case Up:
 			if orderMatrix[floor][0]==1 {
 				orderMatrix[floor][0]=0
+				drivers.ElevSetButtonLamp(drivers.TagElevLampType(0), floor, 0)
 				orderCount--
 			}
 		case Down:
 			if orderMatrix[floor][1]==1 {
+			    drivers.ElevSetButtonLamp(drivers.TagElevLampType(1), floor, 0)
 				orderMatrix[floor][1]=0
 				orderCount--
 			}
@@ -93,7 +103,7 @@ func DeleteFloorOrders(floor int)(){
 	
 }
 
-func AtOrder(eventChannel chan bool)(){
+func AtOrder() bool{
 	stopAtFloor := false
 	floor := drivers.ElevGetFloorSensorSignal()
 	if(floor!=-1){
@@ -103,7 +113,8 @@ func AtOrder(eventChannel chan bool)(){
 		} else if(floor==0){                // If the elevator is at the bottom floor the direction is changed as it can't go further Downwards.
 			direction=Up
 		}
-		if(orderMatrix[floor][2]==1){                  			// Stop if an order from the inside panel has been made at the current floor.
+		if(orderMatrix[floor][2]==1 || firstOrderFloor==floor){                  			// Stop if an order from the inside panel has been made at the current floor.
+		    firstOrderFloor=-1
 			DeleteFloorOrders(floor)
 			stopAtFloor = true
 		} else if(direction==Up && orderMatrix[floor][0]==1){   // Stop if an order from the Up button at the current floor has been made and the elevator is going Up.
@@ -113,11 +124,8 @@ func AtOrder(eventChannel chan bool)(){
 			DeleteFloorOrders(floor)
 			stopAtFloor = true
 		}
-		if stopAtFloor{
-			eventChannel <- true
-		}
 	}
-
+    return stopAtFloor
 }
 
 func GetDir() Direction{
@@ -126,12 +134,12 @@ func GetDir() Direction{
 		return Stop
 	}
 	var ordersAtCur[3] bool //	Holds all orders on the current floor
-	var orderInDir [2] bool // [0] is true if there are orders further up, [1] is true if there is any up
+	var ordersInDir [2] bool // [0] is true if there are orders further up, [1] is true if there is any up
 	var currDir int			// Varable to hold the current direction to be used in orderInDir. 0 for up and 1 for down.
 	
-	for i:=0; <Floors;i++{
+	for i:=0;i<Floors;i++{
 		for j:=0; j<3; j++{
-			if orderMatrix[i][j]{
+			if orderMatrix[i][j]==1{
 				if i==prevFloor {   		//check for orders at current floor
 					ordersAtCur[j] = true		
 				} else if i > prevFloor {	// check for orders upwards
@@ -164,13 +172,18 @@ func GetDir() Direction{
 		return Stop
 	} else if ordersInDir[currDir] { 				//Return current direction if there is an order in that direction
 		return direction 
-	} else if ordersAtCur[currDir+int(direction)] { //Just stay put if there is an order at current flor in opposite direction
+	 
+	}else if ordersAtCur[currDir+int(direction)] { //Just stay put if there is an order at current flor in opposite direction
+		fmt.Printf("her \n")
+		firstOrderFloor = prevFloor
+		direction = -1*direction
 		return Stop
+
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there
 		direction = -1*direction
 		return direction
 	}
-		
+ 
 	direction = Stop	// Stay put if the logic above fails (Yeah, right...)
 	return Stop 
 }
