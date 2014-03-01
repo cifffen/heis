@@ -108,6 +108,7 @@ func AtOrder() bool{
 	floor := drivers.ElevGetFloorSensorSignal()
 	if(floor!=-1){
 		prevFloor=floor
+		drivers.ElevSetFloorIndicator(floor)
 		if(floor==Floors-1){                // If the elevator is at the top floor the direction is changed as it can't go further Upwards.
 			direction=Down 
 		} else if(floor==0){                // If the elevator is at the bottom floor the direction is changed as it can't go further Downwards.
@@ -129,8 +130,12 @@ func AtOrder() bool{
 }
 
 func GetDir() Direction{
+    if drivers.ElevGetFloorSensorSignal() == -1{
+        fmt.Printf("her! \n")
+        return direction
+    }
 	if orderCount==0{       //If called and no orders exisits, just set direction to Stop and return Stop as FSM will go to Idle.
-		direction=Stop
+		//direction=Stop
 		return Stop
 	}
 	var ordersAtCur[3] bool //	Holds all orders on the current floor
@@ -160,7 +165,6 @@ func GetDir() Direction{
 				} else if firstOrderFloor < prevFloor {					
 					direction = Down
 				}
-				firstOrderFloor = -1
 				return direction
 			}
 		case Up:
@@ -169,14 +173,15 @@ func GetDir() Direction{
 			currDir = 1
 	}
 	if ordersAtCur[currDir] || ordersAtCur[2]{		//Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
+	    DeleteFloorOrders(prevFloor)
 		return Stop
 	} else if ordersInDir[currDir] { 				//Return current direction if there is an order in that direction
 		return direction 
 	 
 	}else if ordersAtCur[currDir+int(direction)] { //Just stay put if there is an order at current flor in opposite direction
-		fmt.Printf("her \n")
 		firstOrderFloor = prevFloor
 		direction = -1*direction
+		DeleteFloorOrders(prevFloor)
 		return Stop
 
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there
@@ -184,6 +189,6 @@ func GetDir() Direction{
 		return direction
 	}
  
-	direction = Stop	// Stay put if the logic above fails (Yeah, right...)
-	return Stop 
+	//direction = Stop	// Stay put if the logic above fails (Yeah, right...)
+	return direction 
 }

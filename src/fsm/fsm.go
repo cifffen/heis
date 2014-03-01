@@ -6,7 +6,7 @@ import (
 	"time"
 	"fmt"
 )
-const brakeDur = 5		//Duration, in milliseconds, of the braking time when stopping at a floor 
+const brakeDur = 10		//Duration, in milliseconds, of the braking time when stopping at a floor 
 const doorOpenDur = 3  	//Duration, in seconds, of the time the door stays open when arriving at a floor
 const Speed = 300      	//The speed of the motor
 type(
@@ -78,7 +78,11 @@ func EventManager() (){
 				StateMachine(TimerFinished)
 			//case <- syncChan:
 		}
+		if state== Running{
+	        drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
+	    }
 	}
+	
 }
 	
 	
@@ -86,23 +90,28 @@ func EventManager() (){
 func StateMachine(event Event)(){
 	switch state{
 		case Idle:
+		    //drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 			switch event{
 				case NewOrder:
 					drivers.ElevSetSpeed(int(orderMod.GetDir())*Speed)
+					fmt.Printf("Her2 \n")
 					state = Running
 			}
 		case Running:
+		    //drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 			switch event{
 				case OrderReached:
 				    drivers.ElevSetSpeed(-1*int(orderMod.ReturnDirection())*Speed)
 					brake()
 					DoorTimer = time.After(time.Second*doorOpenDur)
+					drivers.ElevSetDoorOpenLamp(1)
 					state=AtFloor
 					fmt.Printf("Atfloor \n")
 			}
 		case AtFloor:
 			switch event{
 				case TimerFinished:
+				    drivers.ElevSetDoorOpenLamp(0)
 					if orderMod.IsOrderMatrixEmpty(){
 						state=Idle
 						fmt.Printf("Idle \n")
