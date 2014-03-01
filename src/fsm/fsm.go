@@ -6,8 +6,9 @@ import (
 	"time"
 	"fmt"
 )
-const brakeDur = 5 	//Duration, in milliseconds, of the braking time when stopping at a floor 
-const doorOpenDur = 3  //Duration, in seconds, of the time the door stays open when arriving at a floor
+const brakeDur = 5 		//Duration, in milliseconds, of the braking time when stopping at a floor 
+const doorOpenDur = 3  	//Duration, in seconds, of the time the door stays open when arriving at a floor
+const Speed = 300      	//The speed of the motor
 type(
 	Event int
 	State int
@@ -30,7 +31,7 @@ func InitElev() int{
 	if drivers.ElevInit() ==0 {  //IO init failed
 		return 0
 	} else {
-		drivers.ElevSetSpeed(int(orderMod.Down))
+		drivers.ElevSetSpeed(int(orderMod.Down)*Speed)
 		for drivers.ElevGetFloorSensorSignal() ==-1 {
 		}
 		orderMod.InitOrderMod(drivers.ElevGetFloorSensorSignal())
@@ -43,7 +44,7 @@ func InitElev() int{
 
 //Reverse the direction to brake
 func brake()(){
-	drivers.ElevSetSpeend(-1*int(orderMod.GetDir()))  
+	drivers.ElevSetSpeend(-1*int(orderMod.GetDir())*Speed)  
 	time.Sleep(time.Millisecond*brakeDur)
 	drivers.ElevSetSpeend(int(orderMod.Stop))
 }
@@ -76,7 +77,7 @@ func StateMachine(event Event)(){
 		case Idle:
 			switch event{
 				case NewOrder:
-					drivers.ElevSetSpeed(int(orderMod.GetDir()))
+					drivers.ElevSetSpeed(int(orderMod.GetDir())*Speed)
 					state = Running
 			}
 		case Running:
@@ -91,9 +92,10 @@ func StateMachine(event Event)(){
 				case TimerFinished:
 					if orderMod.isOrderMatrixEmpty(){
 						state=Idle
+						orderMod.GetDir()  //Called jsut to set the the variable direction in orderMod to Stop
 					} else {
 						state=Running
-						drivers.ElevSetSpeed(int(orderMod.GetDir()))
+						drivers.ElevSetSpeed(int(orderMod.GetDir())*Speed)
 					}
 			}
 		default:
