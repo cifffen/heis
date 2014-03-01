@@ -35,7 +35,7 @@ func InitOrderMod(floor int)(){
 	direction = Stop
 	prevFloor=floor
 	orderCount=0
-	firstOrder = -1
+	firstOrderFloor = -1
 }
 
 func IsOrderMatrixEmpty() bool{
