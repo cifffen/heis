@@ -18,6 +18,7 @@ const(
 	OrderReached Event =iota
     TimerFinished
 	NewOrder
+	AtEndFloor
 )
 const (
 	Idle State =iota
@@ -57,7 +58,8 @@ func EventManager() (){
     //syncChan := make(chan bool)
 	orderReachedEvent := make(chan bool)
 	newOrderEvent:= make (chan bool)
-	go orderMod.CheckForEvents(orderReachedEvent,newOrderEvent)
+	atEndEvent := make(chan bool)
+	go orderMod.CheckForEvents(orderReachedEvent, newOrderEvent, atEndEvent)
 	for {
 		select {
 		    case <- BrakeTimer:
@@ -76,11 +78,15 @@ func EventManager() (){
 			case <- DoorTimer:
 				fmt.Printf("Door timer finished\n")
 				StateMachine(TimerFinished)
-			//case <- syncChan:
+			case <-atEndEvent:
+				StateMachine(AtEndFloor)
+			
 		}
+		/*
 		if state== Running{
 	        drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 	    }
+		*/
 	}
 	
 }
@@ -98,7 +104,6 @@ func StateMachine(event Event)(){
 					state = Running
 			}
 		case Running:
-		    //drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 			switch event{
 				case OrderReached:
 				    drivers.ElevSetSpeed(-1*int(orderMod.ReturnDirection())*Speed)
@@ -107,6 +112,8 @@ func StateMachine(event Event)(){
 					drivers.ElevSetDoorOpenLamp(1)
 					state=AtFloor
 					fmt.Printf("Atfloor \n")
+				case AtEndFloor:
+					drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 			}
 		case AtFloor:
 			switch event{
