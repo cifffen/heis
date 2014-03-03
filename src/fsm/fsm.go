@@ -6,9 +6,9 @@ import (
 	"time"
 	"fmt"
 )
-const brakeDur = 10		//Duration, in milliseconds, of the braking time when stopping at a floor 
+const brakeDur = 15//Duration, in milliseconds, of the braking time when stopping at a floor 
 const doorOpenDur = 3  	//Duration, in seconds, of the time the door stays open when arriving at a floor
-const Speed = 300      	//The speed of the motor
+const Speed = 200      	//The speed of the motor
 type(
 	Event int
 	State int
@@ -33,12 +33,15 @@ func InitElev() int{
 	if drivers.ElevInit() ==0 {  //IO init failed
 		return 0
 	} else {
-		drivers.ElevSetSpeed(int(orderMod.Down)*Speed)
-		for drivers.ElevGetFloorSensorSignal() ==-1 {
+		if drivers.ElevGetFloorSensorSignal() !=-1 {
+		}else{
+			drivers.ElevSetSpeed(int(orderMod.Down)*Speed)
+			for drivers.ElevGetFloorSensorSignal() ==-1 {
+			}
+			orderMod.InitOrderMod(drivers.ElevGetFloorSensorSignal())
+			drivers.ElevSetSpeed(int(orderMod.Up)*Speed) 
+			brake()
 		}
-		orderMod.InitOrderMod(drivers.ElevGetFloorSensorSignal())
-		drivers.ElevSetSpeed(int(orderMod.Up)*Speed) 
-		brake()
 		state = Idle
 		fmt.Printf("Initialized\n")
 		return 1
@@ -70,6 +73,8 @@ func EventManager() (){
 				    fmt.Printf("New order event\n")
 				    StateMachine(NewOrder)
 				}
+			case <-atEndEvent:
+				StateMachine(AtEndFloor)
 			case atOrder:= <-orderReachedEvent:
 				if atOrder{
 				    fmt.Printf("Order reached event\n")
@@ -78,8 +83,6 @@ func EventManager() (){
 			case <- DoorTimer:
 				fmt.Printf("Door timer finished\n")
 				StateMachine(TimerFinished)
-			case <-atEndEvent:
-				StateMachine(AtEndFloor)
 			
 		}
 		/*
@@ -96,15 +99,22 @@ func EventManager() (){
 func StateMachine(event Event)(){
 	switch state{
 		case Idle:
-		    //drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 			switch event{
 				case NewOrder:
-					drivers.ElevSetSpeed(int(orderMod.GetDir())*Speed)
-					fmt.Printf("Her2 \n")
-					state = Running
+					if orderMod.GetDir()!=0{
+						drivers.ElevSetSpeed(int(orderMod.GetDir())*Speed)
+						state = Running
+					} else{
+						DoorTimer = time.After(time.Second*doorOpenDur)
+						drivers.ElevSetDoorOpenLamp(1)
+						state = AtFloor
+					}
+					
 			}
 		case Running:
 			switch event{
+				case AtEndFloor:
+					drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 				case OrderReached:
 				    drivers.ElevSetSpeed(-1*int(orderMod.ReturnDirection())*Speed)
 					brake()
@@ -112,22 +122,28 @@ func StateMachine(event Event)(){
 					drivers.ElevSetDoorOpenLamp(1)
 					state=AtFloor
 					fmt.Printf("Atfloor \n")
-				case AtEndFloor:
-					drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 			}
 		case AtFloor:
 			switch event{
+				
+				case OrderReached:
+					fmt.Printf("At floor again\n")
+					orderMod.GetDir()
+					state=AtFloor
 				case TimerFinished:
-				    drivers.ElevSetDoorOpenLamp(0)
 					if orderMod.IsOrderMatrixEmpty(){
+						drivers.ElevSetDoorOpenLamp(0)
 						state=Idle
 						fmt.Printf("Idle \n")
-						orderMod.GetDir()  //Called jsut to set the the variable direction in orderMod to Stop
-					} else {
+					} else if orderMod.GetDir() == orderMod.Stop{
+						DoorTimer = time.After(time.Second*doorOpenDur)
+					}else {
+						drivers.ElevSetDoorOpenLamp(0)
 						state=Running
 						fmt.Printf("Runing \n")
 						drivers.ElevSetSpeed(int(orderMod.GetDir())*Speed)
 					}
+					
 			}
 		default:
 			fmt.Printf("Invalid state. \n")

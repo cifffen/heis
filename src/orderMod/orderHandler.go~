@@ -3,6 +3,7 @@ package orderMod
 import (
 	"../drivers"
 	"fmt"
+	"time"
 )
 
 type Direction int
@@ -12,6 +13,7 @@ const (
 	Stop = 0
 )
 
+const SamplingTime= 1
 const Floors = 4
 
 ///////////////////////////
@@ -30,13 +32,14 @@ var direction Direction
 var prevFloor int
 var orderCount int 				// Keeps track of the number of active orders.
 var firstOrderFloor int				// Keeps the floor where the first order came when the elevator was Idle	
+var atEndFloor bool 
 
 func InitOrderMod(floor int)(){
-    fmt.Printf("ordermat %d \n", orderMatrix[1][1])
-	direction = Stop
+	direction = Down
 	prevFloor=floor
 	orderCount=0
 	firstOrderFloor = -1
+	atEndFloor =false
 }
 
 func IsOrderMatrixEmpty() bool{
@@ -48,15 +51,24 @@ func IsOrderMatrixEmpty() bool{
 }
 
 func ReturnDirection() (Direction){   //Returns current direction. 
-	return direction
+	if atEndFloor{
+		return -1*direction
+	} else{
+		return direction
+	}
 }
 //syncChan chan<- bool
-func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool) (){
+func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) (){
 	for {
-	    //fmt.Printf("hæææ? \n")
-		orderReachedEvent <- AtOrder()
-		newOrderEvent <- GetOrders()
-
+		select{
+			case <- time.After(time.Millisecond*SamplingTime):
+				orderReachedEvent <- AtOrder()
+				newOrderEvent <- GetOrders()
+				if atEndFloor {
+					atEndEvent <- true
+					atEndFloor = false
+				}
+		}
 	}   
 }
 
@@ -70,7 +82,6 @@ func GetOrders()bool{
 					drivers.ElevSetButtonLamp(drivers.TagElevLampType(j), i, 1)
 					if orderCount==0 {        	//set  newOrderEvent if there is made an order to an empty orderMatrix
 						firstOrderEvent = true
-						fmt.Printf("newOrder \n")
 						firstOrderFloor = i		//remember where to first order was made for. Might not be necessary with more elevators.
 					}
 					orderCount++				// count number of active orders.
@@ -110,9 +121,11 @@ func AtOrder() bool{
 		prevFloor=floor
 		drivers.ElevSetFloorIndicator(floor)
 		if(floor==Floors-1){                // If the elevator is at the top floor the direction is changed as it can't go further Upwards.
-			direction=Down 
+			direction=Down
+			atEndFloor = true
 		} else if(floor==0){                // If the elevator is at the bottom floor the direction is changed as it can't go further Downwards.
 			direction=Up
+			atEndFloor = true
 		}
 		if(orderMatrix[floor][2]==1 || firstOrderFloor==floor){                  			// Stop if an order from the inside panel has been made at the current floor.
 		    firstOrderFloor=-1
@@ -131,7 +144,6 @@ func AtOrder() bool{
 
 func GetDir() Direction{
     if drivers.ElevGetFloorSensorSignal() == -1{
-        fmt.Printf("her! \n")
         return direction
     }
 	if orderCount==0{       //If called and no orders exisits, just set direction to Stop and return Stop as FSM will go to Idle.
@@ -160,6 +172,7 @@ func GetDir() Direction{
 		case Stop:
 			if firstOrderFloor != -1 {
 				if firstOrderFloor == prevFloor {
+					return stop
 				} else if firstOrderFloor > prevFloor {
 					direction = Up
 				} else if firstOrderFloor < prevFloor {					
@@ -182,6 +195,7 @@ func GetDir() Direction{
 		firstOrderFloor = prevFloor
 		direction = -1*direction
 		DeleteFloorOrders(prevFloor)
+		fmt.Printf("Direction %d \n", direction)
 		return Stop
 
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there

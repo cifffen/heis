@@ -2,7 +2,7 @@ package orderMod
 
 import (
 	"../drivers"
-	//"fmt"
+	"fmt"
 	"time"
 )
 
@@ -51,13 +51,17 @@ func IsOrderMatrixEmpty() bool{
 }
 
 func ReturnDirection() (Direction){   //Returns current direction. 
-	return direction
+	if atEndFloor{
+		return -1*direction
+	} else{
+		return direction
+	}
 }
 //syncChan chan<- bool
 func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) (){
 	for {
 		select{
-			case <- time.After(time.Milliseconds*SamplingTime):
+			case <- time.After(time.Millisecond*SamplingTime):
 				orderReachedEvent <- AtOrder()
 				newOrderEvent <- GetOrders()
 				if atEndFloor {
@@ -168,6 +172,7 @@ func GetDir() Direction{
 		case Stop:
 			if firstOrderFloor != -1 {
 				if firstOrderFloor == prevFloor {
+					return Stop
 				} else if firstOrderFloor > prevFloor {
 					direction = Up
 				} else if firstOrderFloor < prevFloor {					
@@ -190,6 +195,7 @@ func GetDir() Direction{
 		firstOrderFloor = prevFloor
 		direction = -1*direction
 		DeleteFloorOrders(prevFloor)
+		fmt.Printf("Direction %d \n", direction)
 		return Stop
 
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there
