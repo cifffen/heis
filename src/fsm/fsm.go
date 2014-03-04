@@ -6,9 +6,9 @@ import (
 	"time"
 	"fmt"
 )
-const brakeDur = 15//Duration, in milliseconds, of the braking time when stopping at a floor 
+const brakeDur = 10//Duration, in milliseconds, of the braking time when stopping at a floor 
 const doorOpenDur = 3  	//Duration, in seconds, of the time the door stays open when arriving at a floor
-const Speed = 200      	//The speed of the motor
+const Speed = 300      	//The speed of the motor
 type(
 	Event int
 	State int

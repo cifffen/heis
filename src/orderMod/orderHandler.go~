@@ -13,6 +13,10 @@ const (
 	Stop = 0
 )
 
+type Order struct {
+	Floor, Type int
+}
+
 const SamplingTime= 1
 const Floors = 4
 
@@ -172,7 +176,7 @@ func GetDir() Direction{
 		case Stop:
 			if firstOrderFloor != -1 {
 				if firstOrderFloor == prevFloor {
-					return stop
+					return Stop
 				} else if firstOrderFloor > prevFloor {
 					direction = Up
 				} else if firstOrderFloor < prevFloor {					

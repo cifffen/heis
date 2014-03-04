@@ -40,12 +40,12 @@ func BroadcastOnNet(msg ButtonMessage)(){
 func listenOnNetwork()(){
 	addr, err := net.ResolveUDPAddr("udp", BroadCastPort)
 	if err != nil {
-		log.Printf("Error: %v. Running without network connetion", err)
+		log.Printf("Error: %v. Runing without network connetion", err)
 		return
 	}
 	sock, err = net.ListenUDP("udp", addr)
 	if err != nil {
-		log.Printf("Error: %v. Running without network connetion", err)
+		log.Printf("Error: %v. Runing without network connetion", err)
 		return
 	}
 	fmt.Println("Listnening on port", addr)
