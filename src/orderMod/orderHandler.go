@@ -4,6 +4,7 @@ import (
 	"../drivers"
 	"fmt"
 	"time"
+	"../network"
 )
 
 type Direction int
@@ -13,8 +14,7 @@ const (
 	Stop = 0
 )
 
-
-const SamplingTime= 1
+const SamplingTime = 1
 const Floors = 4
 
 ///////////////////////////
@@ -29,20 +29,22 @@ const Floors = 4
 //////////////////////////
 var orderMatrix[Floors][3] int
 
-var direction Direction
-var prevFloor int
+var direction Direction        	// Keeps the last direction the elevator was heading
+var prevFloor int				// Holds the previous floor the elevator past
 var orderCount int 				// Keeps track of the number of active orders.
-var firstOrderFloor int				// Keeps the floor where the first order came when the elevator was Idle	
-var atEndFloor bool 
+var firstOrderFloor int			// Keeps the floor where the first order came when the elevator was Idle	
+var atEndFloor bool 			// True if the elevator is at the lowest or highest floor. Used to change direction in case it got "lost"
 
+// Initializes the order module.
 func InitOrderMod(floor int)(){
-	direction = Down
+	direction = Down 
 	prevFloor=floor
 	orderCount=0
 	firstOrderFloor = -1
 	atEndFloor =false
+	go OrderHandler()
 }
-
+// Checks if the order matrix is empty
 func IsOrderMatrixEmpty() bool{
 	if orderCount==0{
 		return true
@@ -50,15 +52,15 @@ func IsOrderMatrixEmpty() bool{
 		return false
 	}
 }
-
-func ReturnDirection() (Direction){   //Returns current direction. 
+//Returns current direction. 
+func ReturnDirection() (Direction){   
 	if atEndFloor{
 		return -1*direction
 	} else{
 		return direction
 	}
 }
-//syncChan chan<- bool
+//Check for events in order module
 func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) (){
 	for {
 		select{
@@ -67,12 +69,16 @@ func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, at
 				newOrderEvent <- GetOrders()
 				if atEndFloor {
 					atEndEvent <- true
-					atEndFloor = false
 				}
 		}
 	}   
 }
+//Handles orders both locally and over the network
+func OrderHandler()(){
+	msgChan := make(chan network.ButtonMsg)
+	
 
+// Check for orders 
 func GetOrders()bool{
     firstOrderEvent :=false 
 	for i:=0;i<Floors;i++{
@@ -92,8 +98,9 @@ func GetOrders()bool{
 	}
 	return firstOrderEvent	
 }
+//Delete given orders at current floor
 func DeleteFloorOrders(floor int)(){ 
-	if orderMatrix[floor][2]==1 {
+	if orderMatrix[floor][2]==1 {   // Delete panel buttnon
 		orderMatrix[floor][2]=0
 		drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), floor, 0)
 		orderCount--
@@ -112,35 +119,32 @@ func DeleteFloorOrders(floor int)(){
 				orderCount--
 			}
 	}
-	
 }
-
+// Check if the elevator should stop at a floor it passes
 func AtOrder() bool{
-	stopAtFloor := false
 	floor := drivers.ElevGetFloorSensorSignal()
 	if(floor!=-1){
 		prevFloor=floor
-		drivers.ElevSetFloorIndicator(floor)
+		drivers.ElevSetFloorIndicator(floor)//Set floor indicator
 		if(floor==Floors-1){                // If the elevator is at the top floor the direction is changed as it can't go further Upwards.
 			direction=Down
 			atEndFloor = true
 		} else if(floor==0){                // If the elevator is at the bottom floor the direction is changed as it can't go further Downwards.
 			direction=Up
 			atEndFloor = true
+		} else {
+			atEndFloor = false
 		}
-		if(orderMatrix[floor][2]==1 || firstOrderFloor==floor){                  			// Stop if an order from the inside panel has been made at the current floor.
+		if(orderMatrix[floor][2]==1 || firstOrderFloor==floor){   // Stop if an order from the inside panel has been made at the current floor.
 		    firstOrderFloor=-1
 			DeleteFloorOrders(floor)
-			stopAtFloor = true
-		} else if(direction==Up && orderMatrix[floor][0]==1){   // Stop if an order from the Up button at the current floor has been made and the elevator is going Up.
+			return true
+		} else if(direction==Up && orderMatrix[floor][0]==1)||(direction==Down && orderMatrix[floor][1]==1) {   // Stop if an order from the direction button at the current floor has been made and the elevator is going in that direction.
 			DeleteFloorOrders(floor)
-			stopAtFloor = true
-		} else if(direction==Down && orderMatrix[floor][1]==1){   // Stop if an order from the Down button at the current florr has been made and the elevator is going Down.
-			DeleteFloorOrders(floor)
-			stopAtFloor = true
+			return true
 		}
 	}
-    return stopAtFloor
+    return false
 }
 
 func GetDir() Direction{
@@ -148,7 +152,6 @@ func GetDir() Direction{
         return direction
     }
 	if orderCount==0{       //If called and no orders exisits, just set direction to Stop and return Stop as FSM will go to Idle.
-		//direction=Stop
 		return Stop
 	}
 	var ordersAtCur[3] bool //	Holds all orders on the current floor
@@ -168,8 +171,8 @@ func GetDir() Direction{
 			}
 		}
 	}
-	
 	switch direction{
+		/*
 		case Stop:
 			if firstOrderFloor != -1 {
 				if firstOrderFloor == prevFloor {
@@ -181,29 +184,25 @@ func GetDir() Direction{
 				}
 				return direction
 			}
+		*/
 		case Up:
 			currDir = 0 
 		case Down:
 			currDir = 1
 	}
-	if ordersAtCur[currDir] || ordersAtCur[2]{		//Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
+	if ordersAtCur[currDir] || ordersAtCur[2] {		//Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
 	    DeleteFloorOrders(prevFloor)
 		return Stop
 	} else if ordersInDir[currDir] { 				//Return current direction if there is an order in that direction
 		return direction 
-	 
-	}else if ordersAtCur[currDir+int(direction)] { //Just stay put if there is an order at current flor in opposite direction
+	} else if ordersAtCur[currDir+int(direction)] { 	//Just stay put if there is an order at current flor in opposite direction
 		firstOrderFloor = prevFloor
 		direction = -1*direction
 		DeleteFloorOrders(prevFloor)
-		fmt.Printf("Direction %d \n", direction)
 		return Stop
-
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there
 		direction = -1*direction
 		return direction
 	}
- 
-	//direction = Stop	// Stay put if the logic above fails (Yeah, right...)
-	return direction 
+	return direction 			//direction = Stop	// Stay put if the logic above fails (Yeah, right...)
 }

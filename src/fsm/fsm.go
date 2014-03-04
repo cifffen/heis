@@ -6,9 +6,10 @@ import (
 	"time"
 	"fmt"
 )
-const brakeDur = 10//Duration, in milliseconds, of the braking time when stopping at a floor 
+const brakeDur = 10		//Duration, in milliseconds, of the braking time when stopping at a floor 
 const doorOpenDur = 3  	//Duration, in seconds, of the time the door stays open when arriving at a floor
 const Speed = 300      	//The speed of the motor
+
 type(
 	Event int
 	State int
@@ -33,8 +34,8 @@ func InitElev() int{
 	if drivers.ElevInit() ==0 {  //IO init failed
 		return 0
 	} else {
-		if drivers.ElevGetFloorSensorSignal() !=-1 {
-		}else{
+		if drivers.ElevGetFloorSensorSignal() !=-1 { 	//Check if the elevator is at a floor
+		} else {										//else, run downwards until one is found
 			drivers.ElevSetSpeed(int(orderMod.Down)*Speed)
 			for drivers.ElevGetFloorSensorSignal() ==-1 {
 			}
@@ -50,17 +51,13 @@ func InitElev() int{
 
 //Reverse the direction to brake
 func brake()(){
-    fmt.Printf("Begynner \n")
     BrakeTimer = time.After(time.Millisecond*brakeDur)
-
-
 }
 
 // Checks for events and runs the state machine when some occur
 func EventManager() (){
-    //syncChan := make(chan bool)
 	orderReachedEvent := make(chan bool)
-	newOrderEvent:= make (chan bool)
+	newOrderEvent:= make(chan bool)
 	atEndEvent := make(chan bool)
 	go orderMod.CheckForEvents(orderReachedEvent, newOrderEvent, atEndEvent)
 	for {
@@ -90,8 +87,7 @@ func EventManager() (){
 	        drivers.ElevSetSpeed(int(orderMod.ReturnDirection())*Speed)
 	    }
 		*/
-	}
-	
+	}	
 }
 	
 	
@@ -104,12 +100,11 @@ func StateMachine(event Event)(){
 					if orderMod.GetDir()!=0{
 						drivers.ElevSetSpeed(int(orderMod.GetDir())*Speed)
 						state = Running
-					} else{
+					} else {
 						DoorTimer = time.After(time.Second*doorOpenDur)
 						drivers.ElevSetDoorOpenLamp(1)
 						state = AtFloor
-					}
-					
+					}	
 			}
 		case Running:
 			switch event{
@@ -137,7 +132,7 @@ func StateMachine(event Event)(){
 						fmt.Printf("Idle \n")
 					} else if orderMod.GetDir() == orderMod.Stop{
 						DoorTimer = time.After(time.Second*doorOpenDur)
-					}else {
+					} else {
 						drivers.ElevSetDoorOpenLamp(0)
 						state=Running
 						fmt.Printf("Runing \n")
@@ -145,7 +140,5 @@ func StateMachine(event Event)(){
 					}
 					
 			}
-		default:
-			fmt.Printf("Invalid state. \n")
 	}
 }
