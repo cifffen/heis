@@ -40,7 +40,7 @@ func BroadcastOnNet(msg ButtonMessage)(){
 }
 
 // Return IP of own computer
-func getSelfIP() string {
+func GetSelfIP() string {
 	conn,err :=net.Dial("udp", "google.com:80") 
 	if err !=nil {
 		log.Printf("Error: %v. Runing without self address checking.", err)
@@ -49,7 +49,7 @@ func getSelfIP() string {
 		return strings.Split(string(conn.LocalAddr().String()), ":" )[0] 
 	} 
 }
-func listenOnNetwork()(){
+func ListenOnNetwork()(){
 	addr, err := net.ResolveUDPAddr("udp", BroadCastPort)
 	if err != nil {
 		log.Printf("Error: %v. Runing without network connetion", err)
@@ -60,12 +60,12 @@ func listenOnNetwork()(){
 		log.Printf("Error: %v. Runing without network connetion", err)
 		return
 	}
+	sAddr, _ := net.ResolveUDPAddr("udp", GetSelfIP()+NetworkPort)
 	fmt.Println("Listnening on port", addr)
 	go func(){
 		for {
 			buf := make([]byte, 1024)
 			rlen, addr, err := sock.ReadFromUDP(buf)
-			sAddr, _ := net.ResolveUDPAddr("udp", "localhost:2224")
 			if addr != sAddr{
 				err = json.Unmarshal(buf[0:rlen], &m)
 				if err != nil {
