@@ -13,6 +13,7 @@ const (
 	Stop = 0
 )
 
+
 const SamplingTime= 1
 const Floors = 4
 

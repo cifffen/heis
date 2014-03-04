@@ -1,34 +1,26 @@
 package main
 
 import (
-	//"../drivers"
-	"../fsm"
-	"../orderMod"
 	"fmt"
+	"../fsm"
+	"os"
+	"time"
+	"../proPairsMod"
 )
 
 
 
 func main(){
+	ppSuccess := proPairsMod.ProcessPairs(os.Args)
 	if fsm.InitElev()==0{
-		fmt.Printf("Unable to initialize elevator hardware.\n")
+		fmt.Printf("Error: Unable to initialize elevator hardware. Shuting down.\n")
+		os.Exit(1)
 	}
-	orderReachedEvent := make(chan bool)
-	newOrderEvent:= make (chan bool)
-	go orderMod.AtOrder(orderReachedEvent)
-	go orderMod.GetOrders(newOrderEvent)
-	for {
-		select {
-			case <-orderReachedEvent:
-				fmt.Printf("Order reached event\n")
-				fsm.StateMachine(fsm.OrderReached)
-			case <- fsm.DoorTimer:
-				fmt.Printf("Door timer finished\n")
-				fsm.StateMachine(fsm.TimerFinished)
-			case <- newOrderEvent:
-				fmt.Printf("New order event\n")
-				fsm.StateMachine(fsm.NewOrder)
-		}
+	if ppSuccess==0{
+		fmt.Printf("Too many reboots. Elevator shutting down. \n") 
+		time.Sleep(time.Second*4)
+		os.Exit(1)	
 	}
+	fsm.EventManager()
 	
 }
