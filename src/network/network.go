@@ -5,6 +5,7 @@ import(
 	"fmt"
 	"encoding/json"
 	"log"
+	"strings"
 )
 
 var sock *net.UDPConn
@@ -36,6 +37,17 @@ func BroadcastOnNet(msg ButtonMessage)(){
 	if err1 != nil{
 		log.Println(err1)
 	}
+}
+
+// Return IP of own computer
+func getSelfIP() string {
+	conn,err :=net.Dial("udp", "google.com:80") 
+	if err !=nil {
+		log.Printf("Error: %v. Runing without self address checking.", err)
+		return "localhost"
+	} else{
+		return strings.Split(string(conn.LocalAddr().String()), ":" )[0] 
+	} 
 }
 func listenOnNetwork()(){
 	addr, err := net.ResolveUDPAddr("udp", BroadCastPort)
