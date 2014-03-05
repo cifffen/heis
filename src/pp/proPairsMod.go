@@ -1,4 +1,4 @@
-package proPairsMod
+package pp
 
 import (
 	"net"
