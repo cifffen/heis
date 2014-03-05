@@ -51,10 +51,10 @@ func atOrder() bool {
 		prevFloor = floor
 		drivers.ElevSetFloorIndicator(floor) //Set floor indicator
 		if floor == Floors-1 {               // If the elevator is at the top floor the direction is changed as it can't go further Upwards.
-			direction = Down
+			//direction = Down
 			atEndFloor = true
 		} else if floor == 0 { // If the elevator is at the bottom floor the direction is changed as it can't go further Downwards.
-			direction = Up
+			//direction = Up
 			atEndFloor = true
 		} else {
 			atEndFloor = false

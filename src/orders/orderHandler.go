@@ -2,12 +2,12 @@ package orders
 
 import (
 	"../drivers"
-	"../network"
-	"fmt"
-	"time"
+	//"../network"
+	//"fmt"
+	//"time"
 )
 
-type Direction int
+type Direction int 
 
 const (
 	Down Direction = -1
@@ -30,7 +30,7 @@ const Floors = 4
 //////////////////////////
 var orderMatrix [Floors][3]int
 
-var direction Direction // Keeps the last direction the elevator was heading
+var direction Direction // Keeps the last direction the elevator was heading. Can only be changed in atOrder() and GetDir()
 var prevFloor int       // Holds the previous floor the elevator past
 var orderCount int      // Keeps track of the number of active orders.
 var firstOrderFloor int // Keeps the floor where the first order came when the elevator was Idle
@@ -43,7 +43,7 @@ func InitOrderMod(floor int) {
 	orderCount = 0
 	firstOrderFloor = -1
 	atEndFloor = false
-	go OrderHandler()
+	//go OrderHandler()
 }
 
 // Checks if the order matrix is empty
@@ -58,19 +58,28 @@ func IsOrderMatrixEmpty() bool {
 //Returns current direction.
 func ReturnDirection() Direction {
 	if atEndFloor {
-		return -1 * direction
+		return direction
 	} else {
 		return direction
 	}
 }
 
 
-
+/*
 //Handles orders both locally and over the network
-func OrderHandler() {
+func orderHandler() {
 	msgChan := make(chan network.ButtonMsg)
+	network.ListenOnNetwork(msgChan)
+	for {
+		select {
+			case msg := <-msgChan:
+				if checkMsg(msg) {
+				
+				}
+		}
+	}
 }
-
+*/
 //Delete given orders at current floor
 func deleteFloorOrders(floor int) {
 	if orderMatrix[floor][2] == 1 { // Delete panel buttnon
@@ -125,14 +134,14 @@ func GetDir() Direction {
 		currDir = 1
 	}
 	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
-		DeleteFloorOrders(prevFloor)
+		deleteFloorOrders(prevFloor)
 		return Stop
 	} else if ordersInDir[currDir] { //Return current direction if there is an order in that direction
 		return direction
 	} else if ordersAtCur[currDir+int(direction)] { //Just stay put if there is an order at current flor in opposite direction
 		firstOrderFloor = prevFloor
 		direction = -1 * direction
-		DeleteFloorOrders(prevFloor)
+		deleteFloorOrders(prevFloor)
 		return Stop
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there
 		direction = -1 * direction
