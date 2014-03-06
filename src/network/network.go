@@ -18,7 +18,7 @@ const NetworkPort = ":2224"
 
 const (
 	InvalidMsg ActionType  = iota  //	Only used to check if the message recieved is of type ButtonMsg.
-	NewOrder ActionType 		 //
+	NewOrder		 //
 	DeleteOrder
 	Tender
 	AddOrder
@@ -35,7 +35,7 @@ type ButtonMsg struct {
 }
 
 func BroadcastOnNet(msg ButtonMsg) {
-	addr, err := net.ResolveUDPAddr("udp", NetworkIp+NetworkPort)
+	addr, err := net.ResolveUDPAddr("udp", BroadCastIp+NetworkPort)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -62,7 +62,7 @@ func getSelfIP() string {
 	}
 }
 func ListenOnNetwork(msgChan chan<- ButtonMsg) {
-	addr, err := net.ResolveUDPAddr("udp", BroadCastPort)
+	addr, err := net.ResolveUDPAddr("udp", NetworkPort)
 	if err != nil {
 		log.Printf("Error: %v. Running without network connetion", err)
 		return
@@ -77,7 +77,7 @@ func ListenOnNetwork(msgChan chan<- ButtonMsg) {
 		log.Printf("Error: %v. Sending aborted", err)
 	}
 	fmt.Println("Listnening on port", addr)
-	var msg ButtonMessage
+	var msg ButtonMsg
 	for {
 		buf := make([]byte, 1024)
 		rlen, addr, err := sock.ReadFromUDP(buf)
@@ -86,7 +86,7 @@ func ListenOnNetwork(msgChan chan<- ButtonMsg) {
 			if err != nil {
 				log.Printf("Error: %v.", err)
 			} else if msg.Action != InvalidMsg{  // If the message received is not of type ButtonMsg, all elements of msg will be zero(msg={0,0,0}), so we can check if it is valid or not
-				msgChan <- m
+				msgChan <- msg
 			}
 		}
 	}

@@ -13,7 +13,7 @@ const directionValue = 20 //Extra cost if the order is in a conflicting directio
 
 
 func cost(orderFloor int, orderType int) (cost int) {
-	//directionCost, waitCost, travelCost := 0, 0, 0
+	directionCost, waitCost, travelCost := 0, 0, 0
 	if IsLocOrdMatEmpty(){
 		cost = getTravelCost(orderFloor)
 		return

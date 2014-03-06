@@ -39,7 +39,9 @@ func InitElev() int {
 		if drivers.ElevGetFloorSensorSignal() != -1 { //Check if the elevator is at a floor
 		} else { //else, run downwards until one is found
 				drivers.ElevSetSpeed(int(orders.Down) * Speed)
-				for floor := drivers.ElevGetFloorSensorSignal(); floor == -1 {
+				floor := drivers.ElevGetFloorSensorSignal()
+				for floor == -1 {
+					floor = drivers.ElevGetFloorSensorSignal()
 				}
 				orders.InitOrderMod(floor)
 				drivers.ElevSetSpeed(int(orders.Up) * Speed)

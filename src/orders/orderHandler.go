@@ -77,6 +77,7 @@ func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, at
 		case <-time.After(time.Millisecond * SamplingTime):
 			orderReachedEvent <- atOrder()
 			getOrders()
+			checkTenderMaps()
 			if 	newOrder {
 				newOrderEvent <-true
 				newOrder = false
@@ -90,11 +91,29 @@ func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, at
 		}
 	}
 }
+
+func checkTenderMaps()(){
+	for order, tenderTime := range lostTenders {
+		if time.Since(tenderTime) > time.Second*TenderWon{
+				var msg network.ButtonMsg
+				msg.Action = network.AddOrder
+				msg.Order = order
+		}
+	}
+	for order, value := range activeTenders {
+		if time.Since(value.time) > time.Millisecond*TakeLostTenderTime{
+				var msg network.ButtonMsg
+				msg.Action = network.AddOrder
+				msg.Order = order
+		}
+	}
+}
+
 // Check for orders
 func getOrders() {
 	//firstOrderEvent := false
 	var msg network.ButtonMsg
-	msg.Action = network.Neworder
+	msg.Action = network.NewOrder
 	for i := range locOrdMat {
 		for j := range locOrdMat[i] {
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
@@ -126,7 +145,7 @@ func atOrder() (orderReached bool) {
 		}
 		dir:= ReturnDirection()
 		var msg network.ButtonMsg
-		msg.Action = DeleteOrder
+		msg.Action = network.DeleteOrder
 		if locOrdMat[floor][PanelButton] == 1 || firstOrderFloor == floor { // Stop if an order from the inside panel has been made at the current floor.
 			firstOrderFloor = -1
 			msg.Order=network.OrderType{PanelButton, floor}
@@ -158,7 +177,7 @@ func orderHandler(msg network.ButtonMsg) {
 					if button == PanelButton {
 						locOrdMat[floor][button]=1
 						if IsLocOrdMatEmpty() {
-							NewOrder = true
+							newOrder = true
 							firstOrderFloor = floor
 						}
 						orderCount++
@@ -197,7 +216,7 @@ func orderHandler(msg network.ButtonMsg) {
 					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)
 					locOrdMat[floor][button]=1
 					if IsLocOrdMatEmpty() {
-						NewOrder = true
+						newOrder = true
 						firstOrderFloor = floor
 					}
 					orderCount++ 
@@ -247,8 +266,9 @@ func GetDir() Direction {
 	}
 	var ordersAtCur [3]bool //	Holds all orders on the current floor
 	var ordersInDir [2]bool // [0] is true if there are orders further up, [1] is true if there is any up
-	var currDir Button      // Varable to hold the current direction to be used in orderInDir. 0 for up and 1 for down.
-
+	var currDir int     // Varable to hold the current direction to be used in orderInDir. 0 for up and 1 for down.
+	var msg network.ButtonMsg
+	msg.Action = network.DeleteOrder
 	for i := range locOrdMat {
 		for j := range locOrdMat[i] {
 			if locOrdMat[i][j] == 1 {
@@ -269,14 +289,22 @@ func GetDir() Direction {
 			currDir = DownButton
 	}
 	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
-		deleteFloorOrders(prevFloor)
+		msg.Order=network.OrderType{currDir, prevFloor}
+		orderHandler(msg)
+		msg.Order=network.OrderType{PanelButton, prevFloor}
+		orderHandler(msg)
 		return Stop
 	} else if ordersInDir[currDir] { //Return current direction if there is an order in that direction
 		return direction
 	} else if ordersAtCur[currDir+int(direction)] { //Just stay put if there is an order at current flor in opposite direction
 		firstOrderFloor = prevFloor
 		direction = -1 * direction
-		deleteFloorOrders(prevFloor)
+		msg.Order=network.OrderType{currDir, prevFloor}
+		orderHandler(msg)
+		msg.Order=network.OrderType{PanelButton, prevFloor}
+		orderHandler(msg)
+		msg.Order=network.OrderType{currDir+int(direction), prevFloor}
+		orderHandler(msg)
 		return Stop
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there
 		direction = -1 * direction
