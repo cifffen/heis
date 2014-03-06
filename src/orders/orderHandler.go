@@ -26,8 +26,10 @@ type TenderType struct{
 	val 	int
 }
 
-const SamplingTime	= 1
-const Floors 		= 4
+const TenderWon			 = 500 // Milliseconds
+const TakeLostTenderTime = 20  // Seconds
+const SamplingTime		 = 1   // Milliseconds
+const Floors 			 = 4   // Number of floors
 
 ///////////////////////////
 //   locOrdMat Layout  //   
@@ -69,7 +71,7 @@ func InitOrderMod(floor int) {
 //Check for events in order module
 func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) {
 	msgChan := make(chan network.ButtonMsg)
-	network.ListenOnNetwork(msgChan)
+	go network.ListenOnNetwork(msgChan)
 	for {
 		select {
 		case <-time.After(time.Millisecond * SamplingTime):
@@ -82,6 +84,7 @@ func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, at
 			if atEndFloor {
 				atEndEvent <- true
 			}
+			
 		case msg:= <-msgChan:
 			orderHandler(msg)
 		}
@@ -96,21 +99,8 @@ func getOrders() {
 		for j := range locOrdMat[i] {
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
 				if drivers.ElevGetButtonSignal(j, i) == 1{ // && locOrdMat[i][j] != 1 {
-					msg.Orders=network.OrderType{j, i}
+					msg.Order=network.OrderType{j, i}
 					orderHandler(msg)
-					/*
-					if j==2{	
-						locOrdMat[i][2] = 1
-						drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), i, 1)
-						orderCount++ // Increment number of active orders.
-					} else {
-					}
-					
-					if orderCount == 0 { //set  newOrderEvent if there is made an order to an empty locOrdMat
-						firstOrderEvent = true
-						firstOrderFloor = i //remember where to first order was made for. Might not be necessary with more elevators.
-					}
-					*/
 				}
 			}
 		}
@@ -119,8 +109,9 @@ func getOrders() {
 }
 
 // Check if the elevator should stop at a floor it passes
-func atOrder() bool {
+func atOrder() (orderReached bool) {
 	floor := drivers.ElevGetFloorSensorSignal()
+	orderReached = false
 	if floor != -1 {
 		prevFloor = floor
 		drivers.ElevSetFloorIndicator(floor) //Set floor indicator
@@ -134,16 +125,25 @@ func atOrder() bool {
 			atEndFloor = false
 		}
 		dir:= ReturnDirection()
-		if locOrdMat[floor][2] == 1 || firstOrderFloor == floor { // Stop if an order from the inside panel has been made at the current floor.
+		var msg network.ButtonMsg
+		msg.Action = DeleteOrder
+		if locOrdMat[floor][PanelButton] == 1 || firstOrderFloor == floor { // Stop if an order from the inside panel has been made at the current floor.
 			firstOrderFloor = -1
-			deleteFloorOrders(floor)
-			return true
-		} else if (dir == Up && locOrdMat[floor][0] == 1) || (dir == Down && locOrdMat[floor][1] == 1) { // Stop if an order from the direction button at the current floor has been made and the elevator is going in that direction.
-			deleteFloorOrders(floor)
-			return true
-		}
+			msg.Order=network.OrderType{PanelButton, floor}
+			orderHandler(msg)
+			orderReached = true
+		} 
+		if (dir == Up && locOrdMat[floor][UpButton] == 1) { // Stop if an order from the direction button at the current floor has been made and the elevator is going in that direction.
+			msg.Order=network.OrderType{UpButton, floor}
+			orderHandler(msg)
+			orderReached = true
+		} else if (dir == Down && locOrdMat[floor][DownButton] == 1) {
+			msg.Order=network.OrderType{DownButton, floor}
+			orderHandler(msg)
+			orderReached = true
+		}	
 	}
-	return false
+	return 
 }
 
 //Handles orders both locally and over the network
@@ -154,25 +154,62 @@ func orderHandler(msg network.ButtonMsg) {
 		switch msg.Action {
 			case network.NewOrder:
 				if locOrdMat[floor][button] != 1 {
+					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)
 					if button == PanelButton {
 						locOrdMat[floor][button]=1
 						if IsLocOrdMatEmpty() {
 							NewOrder = true
+							firstOrderFloor = floor
 						}
 						orderCount++
+					} else {
+						msg.Action = network.Tender
+						msg.TenderVal = cost(floor, button)
+						activeTenders[order] = TenderType{time.Now(), msg.TenderVal}
+						go network.BroadcastOnNet(msg)  // Send tender for order on network
 					}
+				}			
 			case network.DeleteOrder:
-			
+				delete(activeTenders, order)
+				delete(lostTenders , order)
+				drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 0)
+				if locOrdMat[floor][button] == 1 {
+					locOrdMat[floor][button]=0
+					orderCount--
+				}	
 			case network.Tender:
+				if tender, ok := activeTenders[order]; ok { // Check if we already have a tender there
+					if tender.val > msg.TenderVal {				// If our tender is worse than the one received, we delete it from active tenders and add it to lost tenders and let it go
+						delete(activeTenders, order)
+						lostTenders[order] = time.Now()
+					} 
+				} else {
+					if tenderVal := cost(floor, button); tenderVal < msg.TenderVal {
+						msg.TenderVal = tenderVal
+						activeTenders[order] = TenderType{time.Now(), tenderVal}
+						go network.BroadcastOnNet(msg)  // Send tender for order on network
+					}
+				}
+			case network.AddOrder:
+				delete(activeTenders, order)
+				delete(lostTenders , order)
+				if locOrdMat[floor][button] != 1 {
+					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)
+					locOrdMat[floor][button]=1
+					if IsLocOrdMatEmpty() {
+						NewOrder = true
+						firstOrderFloor = floor
+					}
+					orderCount++ 
+				}
 		}
-
 	}
 }
 
 //Checks that the message is valid
 func checkMsg(msg network.ButtonMsg) bool {
 	switch msg.Action {
-		case network.NewOrder, network.DeleteOrder, network.Tender:
+		case network.NewOrder, network.DeleteOrder, network.Tender, network.AddOrder:
 			order 		  := msg.Order
 			floor, button := order.Floor, order.Button
 			if((floor != 0 && floor != Floors-1) || (floor == 0 && button != DownButton) || (floor == Floors-1 && button != UpButton)){
@@ -182,29 +219,6 @@ func checkMsg(msg network.ButtonMsg) bool {
 			}
 	}
 	return false
-}
-
-//Delete given orders at current floor
-func deleteFloorOrders(floor int) {
-	if locOrdMat[floor][2] == 1 { // Delete panel buttnon
-		locOrdMat[floor][2] = 0
-		drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), floor, 0)
-		orderCount--
-	}
-	switch direction {
-	case Up:
-		if locOrdMat[floor][0] == 1 {
-			locOrdMat[floor][0] = 0
-			drivers.ElevSetButtonLamp(drivers.TagElevLampType(0), floor, 0)
-			orderCount--
-		}
-	case Down:
-		if locOrdMat[floor][1] == 1 {
-			drivers.ElevSetButtonLamp(drivers.TagElevLampType(1), floor, 0)
-			locOrdMat[floor][1] = 0
-			orderCount--
-		}
-	}
 }
 
 // Checks if the order matrix is empty
@@ -249,10 +263,10 @@ func GetDir() Direction {
 		}
 	}
 	switch direction {
-	case Up:
-		currDir = UpButton
-	case Down:
-		currDir = DownButton
+		case Up:
+			currDir = UpButton
+		case Down:
+			currDir = DownButton
 	}
 	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
 		deleteFloorOrders(prevFloor)

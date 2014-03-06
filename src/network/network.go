@@ -12,6 +12,7 @@ var sock *net.UDPConn
 
 type ActionType int
 
+const NumbOfBroadcasts = 5
 const BroadCastIp = "192.168.1.255"
 const NetworkPort = ":2224"
 
@@ -20,6 +21,7 @@ const (
 	NewOrder ActionType 		 //
 	DeleteOrder
 	Tender
+	AddOrder
 )
 type OrderType struct{
 	Button 	int			// Holds the button on the floor, Up or Down
@@ -33,14 +35,19 @@ type ButtonMsg struct {
 }
 
 func BroadcastOnNet(msg ButtonMsg) {
-	addr, _ := net.ResolveUDPAddr("udp", NetworkIp+NetworkPort)
-	buf, err1 := json.Marshal(msg)
-	if err1 != nil {
-		fmt.Println(err1)
+	addr, err := net.ResolveUDPAddr("udp", NetworkIp+NetworkPort)
+	if err != nil {
+		fmt.Println(err)
 	}
-	_, err1 = sock.WriteTo(buf, addr)
-	if err1 != nil {
-		log.Println(err1)
+	buf, err := json.Marshal(msg)
+	if err != nil {
+		fmt.Println(err)
+	}
+	for i := 0; i < NumbOfBroadcasts; i++ {  
+		_, err = sock.WriteTo(buf, addr)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
