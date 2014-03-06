@@ -78,17 +78,18 @@ func ListenOnNetwork(msgChan chan<- ButtonMsg) {
 	}
 	fmt.Println("Listnening on port", addr)
 	var msg ButtonMsg
-	for {
-		buf := make([]byte, 1024)
-		rlen, addr, err := sock.ReadFromUDP(buf)
-		if addr != sAddr { // Don't handle if it's from the computer
-			err = json.Unmarshal(buf[0:rlen], &msg)
-			if err != nil {
-				log.Printf("Error: %v.", err)
-			} else if msg.Action != InvalidMsg{  // If the message received is not of type ButtonMsg, all elements of msg will be zero(msg={0,0,0}), so we can check if it is valid or not
-				msgChan <- msg
+	go func (){
+		for {
+			buf := make([]byte, 1024)
+			rlen, addr, err := sock.ReadFromUDP(buf)
+			if addr != sAddr { // Don't handle if it's from the computer
+				err = json.Unmarshal(buf[0:rlen], &msg)
+				if err != nil {
+					log.Printf("Error: %v.", err)
+				} else if msg.Action != InvalidMsg{  // If the message received is not of type ButtonMsg, all elements of msg will be zero(msg={0,0,0}), so we can check if it is valid or not
+					msgChan <- msg
+				}
 			}
 		}
-	}
-
+	}()
 }
