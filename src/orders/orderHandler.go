@@ -8,13 +8,7 @@ import (
 )
 
 type Direction int
-type Button int
-*/
-type order struct{ //Holds a new order from the outside panel
-	floor int //
-	button Button
-}
-*/
+
 const (
 	Down Direction = -1
 	Up             = 1
@@ -22,16 +16,21 @@ const (
 )
 
 const (
-	UpButton Button = iota
+	UpButton 	int = iota
 	DownButton
 	PanelButton
 )
 
-const SamplingTime = 1
-const Floors = 4
+type TenderType struct{
+	time 	time.Time
+	val 	int
+}
+
+const SamplingTime	= 1
+const Floors 		= 4
 
 ///////////////////////////
-//   locOrdMat Layout  //
+//   locOrdMat Layout  //   
 //   Up // Down	// Panel//   <-- Button order
 //------------------------
 //    	//  	// 		//  	Lowest floor
@@ -40,24 +39,32 @@ const Floors = 4
 //	...	//	..	//	...	//
 //		//		//		//   	Highest floor (Floors)
 //////////////////////////
-var locOrdMat [Floors][3]int
-var globOrdMat [Floors][2]int
+var locOrdMat [Floors][3]int 	// Holds the orders that the elevator has accepted and will carry out
+//var globOrdMat [Floors][2]int 	// Holds the direction orders on the network, both lost and non-desided tenders
+var activeTenders map[network.OrderType] 	TenderType
+var lostTenders map[network.OrderType] 		time.Time
+
+
 //----Package variables-----//
 //All are initialized in initOrderMod()and can only be changed by certain functions.
-var direction Direction // Keeps the last direction the elevator was heading. Can only be changed in atOrder() and GetDir()
-var prevFloor int       // Holds the previous floor the elevator past. Can only be changed at atOrder()
-var orderCount int      // Keeps track of the number of active orders.
-var firstOrderFloor int // Keeps the floor where the first order came from when the elevator was Idle
-var atEndFloor bool     // True if the elevator is at the lowest or highest floor. Used to change direction in case it got "lost"
+var direction 		Direction 	// Keeps the last direction the elevator was heading. Can only be changed in atOrder() and GetDir()
+var prevFloor 		int      	// Holds the previous floor the elevator past. Can only be changed at atOrder()
+var orderCount 		int      	// Keeps track of the number of active orders.
+var firstOrderFloor int 		// Keeps the floor where the first order came from when the elevator was Idle
+var atEndFloor 		bool     	// True if the elevator is at the lowest or highest floor. Used to change direction in case it got "lost"
+var newOrder		bool   		// Set high to launch NewOrderEvent if an order is made and the orderMatrix is empyty
 //--------------------------//
 
 // Initializes the order module.
 func InitOrderMod(floor int) {
-	direction = Down
-	prevFloor = floor
-	orderCount = 0
+	direction 		= Down
+	prevFloor 		= floor
+	orderCount 		= 0
 	firstOrderFloor = -1
-	atEndFloor = false
+	atEndFloor 		= false
+	newOrder 		= false
+	activeTenders 	= make(map[network.OrderType] TenderType)
+	lostTenders 	= make(map[network.OrderType] time.Time)
 }
 //Check for events in order module
 func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) {
@@ -67,23 +74,30 @@ func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, at
 		select {
 		case <-time.After(time.Millisecond * SamplingTime):
 			orderReachedEvent <- atOrder()
-			newOrderEvent <- getOrders()
+			getOrders()
+			if 	newOrder {
+				newOrderEvent <-true
+				newOrder = false
+			}
 			if atEndFloor {
 				atEndEvent <- true
 			}
+		case msg:= <-msgChan:
+			orderHandler(msg)
 		}
 	}
 }
 // Check for orders
-func getOrders() bool {
-	firstOrderEvent := false
+func getOrders() {
+	//firstOrderEvent := false
 	var msg network.ButtonMsg
 	msg.Action = network.Neworder
 	for i := range locOrdMat {
 		for j := range locOrdMat[i] {
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
-				if drivers.ElevGetButtonSignal(j, i) == 1 && locOrdMat[i][j] != 1 {
-					
+				if drivers.ElevGetButtonSignal(j, i) == 1{ // && locOrdMat[i][j] != 1 {
+					msg.Orders=network.OrderType{j, i}
+					orderHandler(msg)
 					/*
 					if j==2{	
 						locOrdMat[i][2] = 1
@@ -101,7 +115,7 @@ func getOrders() bool {
 			}
 		}
 	}
-	return firstOrderEvent
+	//return firstOrderEvent
 }
 
 // Check if the elevator should stop at a floor it passes
@@ -135,9 +149,18 @@ func atOrder() bool {
 //Handles orders both locally and over the network
 func orderHandler(msg network.ButtonMsg) {
 	if checkMsg(msg) {
+		order 		  := msg.Order
+		floor, button := order.Floor, order.Button
 		switch msg.Action {
 			case network.NewOrder:
-			
+				if locOrdMat[floor][button] != 1 {
+					if button == PanelButton {
+						locOrdMat[floor][button]=1
+						if IsLocOrdMatEmpty() {
+							NewOrder = true
+						}
+						orderCount++
+					}
 			case network.DeleteOrder:
 			
 			case network.Tender:
@@ -150,8 +173,12 @@ func orderHandler(msg network.ButtonMsg) {
 func checkMsg(msg network.ButtonMsg) bool {
 	switch msg.Action {
 		case network.NewOrder, network.DeleteOrder, network.Tender:
-			if msg.Floor>=0 && msg.Floor<Floors && (msg.button==UpButton || msg.Button==DownButton) && msg.TenderVal>=0 { 
-				return true
+			order 		  := msg.Order
+			floor, button := order.Floor, order.Button
+			if((floor != 0 && floor != Floors-1) || (floor == 0 && button != DownButton) || (floor == Floors-1 && button != UpButton)){
+				if floor>=0 && floor<Floors && (button==UpButton || button==DownButton) && msg.TenderVal>=0 { 
+					return true
+				}
 			}
 	}
 	return false
@@ -181,7 +208,7 @@ func deleteFloorOrders(floor int) {
 }
 
 // Checks if the order matrix is empty
-func IslocOrdMatEmpty() bool {
+func IsLocOrdMatEmpty() bool {
 	if orderCount == 0 {
 		return true
 	} else {

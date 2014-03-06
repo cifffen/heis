@@ -21,12 +21,15 @@ const (
 	DeleteOrder
 	Tender
 )
+type OrderType struct{
+	Button 	int			// Holds the button on the floor, Up or Down
+	Floor 	int			// Holds the floor
+}
 
 type ButtonMsg struct {
-	Action    ActionType   	// Holds what the information of what to do with the message
-	Floor     int			// Holds the floor
-	Button    int			// Holds the button on the floor, Up or Down
-	TenderVal int			// If the action is a Tender, this will hold the cost from the sender, that is, the value from the cost function for this order
+	Action    	ActionType   	// Holds what the information of what to do with the message
+	Order 		OrderType 		// Holds the floor and button of the order
+	TenderVal 	int				// If the action is a Tender, this will hold the cost from the sender, that is, the value from the cost function for this order
 }
 
 func BroadcastOnNet(msg ButtonMsg) {

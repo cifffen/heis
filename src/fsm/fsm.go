@@ -67,11 +67,9 @@ func EventManager() {
 		case <-BrakeTimer:
 			drivers.ElevSetSpeed(int(orders.Stop))
 			fmt.Printf("Ferdig \n")
-		case newOrder := <-newOrderEvent:
-			if newOrder {
-				fmt.Printf("New order event\n")
-				stateMachine(NewOrder)
-			}
+		case <-newOrderEvent:
+			fmt.Printf("New order event\n")
+			stateMachine(NewOrder)
 		case <-atEndEvent:
 			stateMachine(AtEndFloor)
 		case atOrder := <-orderReachedEvent:
@@ -126,7 +124,7 @@ func stateMachine(event Event) {
 			orders.GetDir()
 			state = AtFloor
 		case TimerFinished:
-			if orders.IsOrderMatrixEmpty() {
+			if orders.IsLocOrdMatEmpty() {
 				drivers.ElevSetDoorOpenLamp(0)
 				state = Idle
 				fmt.Printf("Idle \n")
