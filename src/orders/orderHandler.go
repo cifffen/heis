@@ -2,24 +2,36 @@ package orders
 
 import (
 	"../drivers"
-	//"../network"
+	"../network"
 	//"fmt"
-	//"time"
+	"time"
 )
 
-type Direction int 
-
+type Direction int
+type Button int
+*/
+type order struct{ //Holds a new order from the outside panel
+	floor int //
+	button Button
+}
+*/
 const (
 	Down Direction = -1
 	Up             = 1
 	Stop           = 0
 )
 
+const (
+	UpButton Button = iota
+	DownButton
+	PanelButton
+)
+
 const SamplingTime = 1
 const Floors = 4
 
 ///////////////////////////
-/*   OrderMatrix Layout  */
+//   locOrdMat Layout  //
 //   Up // Down	// Panel//   <-- Button order
 //------------------------
 //    	//  	// 		//  	Lowest floor
@@ -28,13 +40,16 @@ const Floors = 4
 //	...	//	..	//	...	//
 //		//		//		//   	Highest floor (Floors)
 //////////////////////////
-var orderMatrix [Floors][3]int
-
+var locOrdMat [Floors][3]int
+var globOrdMat [Floors][2]int
+//----Package variables-----//
+//All are initialized in initOrderMod()and can only be changed by certain functions.
 var direction Direction // Keeps the last direction the elevator was heading. Can only be changed in atOrder() and GetDir()
-var prevFloor int       // Holds the previous floor the elevator past
+var prevFloor int       // Holds the previous floor the elevator past. Can only be changed at atOrder()
 var orderCount int      // Keeps track of the number of active orders.
-var firstOrderFloor int // Keeps the floor where the first order came when the elevator was Idle
+var firstOrderFloor int // Keeps the floor where the first order came from when the elevator was Idle
 var atEndFloor bool     // True if the elevator is at the lowest or highest floor. Used to change direction in case it got "lost"
+//--------------------------//
 
 // Initializes the order module.
 func InitOrderMod(floor int) {
@@ -43,11 +58,130 @@ func InitOrderMod(floor int) {
 	orderCount = 0
 	firstOrderFloor = -1
 	atEndFloor = false
-	//go OrderHandler()
+}
+//Check for events in order module
+func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) {
+	msgChan := make(chan network.ButtonMsg)
+	network.ListenOnNetwork(msgChan)
+	for {
+		select {
+		case <-time.After(time.Millisecond * SamplingTime):
+			orderReachedEvent <- atOrder()
+			newOrderEvent <- getOrders()
+			if atEndFloor {
+				atEndEvent <- true
+			}
+		}
+	}
+}
+// Check for orders
+func getOrders() bool {
+	firstOrderEvent := false
+	var msg network.ButtonMsg
+	msg.Action = network.Neworder
+	for i := range locOrdMat {
+		for j := range locOrdMat[i] {
+			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
+				if drivers.ElevGetButtonSignal(j, i) == 1 && locOrdMat[i][j] != 1 {
+					
+					/*
+					if j==2{	
+						locOrdMat[i][2] = 1
+						drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), i, 1)
+						orderCount++ // Increment number of active orders.
+					} else {
+					}
+					
+					if orderCount == 0 { //set  newOrderEvent if there is made an order to an empty locOrdMat
+						firstOrderEvent = true
+						firstOrderFloor = i //remember where to first order was made for. Might not be necessary with more elevators.
+					}
+					*/
+				}
+			}
+		}
+	}
+	return firstOrderEvent
+}
+
+// Check if the elevator should stop at a floor it passes
+func atOrder() bool {
+	floor := drivers.ElevGetFloorSensorSignal()
+	if floor != -1 {
+		prevFloor = floor
+		drivers.ElevSetFloorIndicator(floor) //Set floor indicator
+		if floor == Floors-1 {               // If the elevator is at the top floor the direction is changed as it can't go further Upwards.
+			direction = Down
+			atEndFloor = true
+		} else if floor == 0 { // If the elevator is at the bottom floor the direction is changed as it can't go further Downwards.
+			direction = Up
+			atEndFloor = true
+		} else {
+			atEndFloor = false
+		}
+		dir:= ReturnDirection()
+		if locOrdMat[floor][2] == 1 || firstOrderFloor == floor { // Stop if an order from the inside panel has been made at the current floor.
+			firstOrderFloor = -1
+			deleteFloorOrders(floor)
+			return true
+		} else if (dir == Up && locOrdMat[floor][0] == 1) || (dir == Down && locOrdMat[floor][1] == 1) { // Stop if an order from the direction button at the current floor has been made and the elevator is going in that direction.
+			deleteFloorOrders(floor)
+			return true
+		}
+	}
+	return false
+}
+
+//Handles orders both locally and over the network
+func orderHandler(msg network.ButtonMsg) {
+	if checkMsg(msg) {
+		switch msg.Action {
+			case network.NewOrder:
+			
+			case network.DeleteOrder:
+			
+			case network.Tender:
+		}
+
+	}
+}
+
+//Checks that the message is valid
+func checkMsg(msg network.ButtonMsg) bool {
+	switch msg.Action {
+		case network.NewOrder, network.DeleteOrder, network.Tender:
+			if msg.Floor>=0 && msg.Floor<Floors && (msg.button==UpButton || msg.Button==DownButton) && msg.TenderVal>=0 { 
+				return true
+			}
+	}
+	return false
+}
+
+//Delete given orders at current floor
+func deleteFloorOrders(floor int) {
+	if locOrdMat[floor][2] == 1 { // Delete panel buttnon
+		locOrdMat[floor][2] = 0
+		drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), floor, 0)
+		orderCount--
+	}
+	switch direction {
+	case Up:
+		if locOrdMat[floor][0] == 1 {
+			locOrdMat[floor][0] = 0
+			drivers.ElevSetButtonLamp(drivers.TagElevLampType(0), floor, 0)
+			orderCount--
+		}
+	case Down:
+		if locOrdMat[floor][1] == 1 {
+			drivers.ElevSetButtonLamp(drivers.TagElevLampType(1), floor, 0)
+			locOrdMat[floor][1] = 0
+			orderCount--
+		}
+	}
 }
 
 // Checks if the order matrix is empty
-func IsOrderMatrixEmpty() bool {
+func IslocOrdMatEmpty() bool {
 	if orderCount == 0 {
 		return true
 	} else {
@@ -63,46 +197,6 @@ func ReturnDirection() Direction {
 		return direction
 	}
 }
-
-
-/*
-//Handles orders both locally and over the network
-func orderHandler() {
-	msgChan := make(chan network.ButtonMsg)
-	network.ListenOnNetwork(msgChan)
-	for {
-		select {
-			case msg := <-msgChan:
-				if checkMsg(msg) {
-				
-				}
-		}
-	}
-}
-*/
-//Delete given orders at current floor
-func deleteFloorOrders(floor int) {
-	if orderMatrix[floor][2] == 1 { // Delete panel buttnon
-		orderMatrix[floor][2] = 0
-		drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), floor, 0)
-		orderCount--
-	}
-	switch direction {
-	case Up:
-		if orderMatrix[floor][0] == 1 {
-			orderMatrix[floor][0] = 0
-			drivers.ElevSetButtonLamp(drivers.TagElevLampType(0), floor, 0)
-			orderCount--
-		}
-	case Down:
-		if orderMatrix[floor][1] == 1 {
-			drivers.ElevSetButtonLamp(drivers.TagElevLampType(1), floor, 0)
-			orderMatrix[floor][1] = 0
-			orderCount--
-		}
-	}
-}
-
 func GetDir() Direction {
 	if drivers.ElevGetFloorSensorSignal() == -1 {
 		return direction
@@ -112,15 +206,15 @@ func GetDir() Direction {
 	}
 	var ordersAtCur [3]bool //	Holds all orders on the current floor
 	var ordersInDir [2]bool // [0] is true if there are orders further up, [1] is true if there is any up
-	var currDir int         // Varable to hold the current direction to be used in orderInDir. 0 for up and 1 for down.
+	var currDir Button      // Varable to hold the current direction to be used in orderInDir. 0 for up and 1 for down.
 
-	for i := range orderMatrix {
-		for j := range orderMatrix[i]{
-			if orderMatrix[i][j] == 1 {
+	for i := range locOrdMat {
+		for j := range locOrdMat[i] {
+			if locOrdMat[i][j] == 1 {
 				if i == prevFloor { //check for orders at current floor
 					ordersAtCur[j] = true
 				} else if i > prevFloor { // check for orders upwards
-					ordersInDir[0] = true
+					ordersInDir[UpButton] = true
 				} else if i < prevFloor { // check for orders downwards
 					ordersInDir[1] = true
 				}
@@ -129,9 +223,9 @@ func GetDir() Direction {
 	}
 	switch direction {
 	case Up:
-		currDir = 0
+		currDir = UpButton
 	case Down:
-		currDir = 1
+		currDir = DownButton
 	}
 	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
 		deleteFloorOrders(prevFloor)

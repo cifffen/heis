@@ -16,16 +16,17 @@ const BroadCastIp = "192.168.1.255"
 const NetworkPort = ":2224"
 
 const (
-	NewOrder ActionType = iota
+	InvalidMsg ActionType  = iota  //	Only used to check if the message recieved is of type ButtonMsg.
+	NewOrder ActionType 		 //
 	DeleteOrder
 	Tender
 )
 
 type ButtonMsg struct {
-	Action    ActionType
-	Floor     int
-	Button    int
-	TenderVal int
+	Action    ActionType   	// Holds what the information of what to do with the message
+	Floor     int			// Holds the floor
+	Button    int			// Holds the button on the floor, Up or Down
+	TenderVal int			// If the action is a Tender, this will hold the cost from the sender, that is, the value from the cost function for this order
 }
 
 func BroadcastOnNet(msg ButtonMsg) {
@@ -34,7 +35,6 @@ func BroadcastOnNet(msg ButtonMsg) {
 	if err1 != nil {
 		fmt.Println(err1)
 	}
-	//rAddr, _ := net.ResolveUDPAddr("udp", "192.168.1.255:2224")
 	_, err1 = sock.WriteTo(buf, addr)
 	if err1 != nil {
 		log.Println(err1)
@@ -67,15 +67,15 @@ func ListenOnNetwork(msgChan chan<- ButtonMsg) {
 		log.Printf("Error: %v. Sending aborted", err)
 	}
 	fmt.Println("Listnening on port", addr)
-
+	var msg ButtonMessage
 	for {
 		buf := make([]byte, 1024)
 		rlen, addr, err := sock.ReadFromUDP(buf)
 		if addr != sAddr { // Don't handle if it's from the computer
-			err = json.Unmarshal(buf[0:rlen], &m)
+			err = json.Unmarshal(buf[0:rlen], &msg)
 			if err != nil {
 				log.Printf("Error: %v.", err)
-			} else {
+			} else if msg.Action != InvalidMsg{  // If the message received is not of type ButtonMsg, all elements of msg will be zero(msg={0,0,0}), so we can check if it is valid or not
 				msgChan <- m
 			}
 		}

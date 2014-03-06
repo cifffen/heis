@@ -1,4 +1,4 @@
-package orders
+//package orders
 
 import (
 	"../drivers"
@@ -10,6 +10,8 @@ import (
 
 //Check for events in order module
 func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) {
+	msgChan := make(chan network.ButtonMsg)
+	network.ListenOnNetwork(msgChan)
 	for {
 		select {
 		case <-time.After(time.Millisecond * SamplingTime):
@@ -28,15 +30,19 @@ func getOrders() bool {
 	firstOrderEvent := false
 	for i := range orderMatrix {
 		for j := range orderMatrix[i] {
-			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and
-				if drivers.ElevGetButtonSignal(j, i) == 1 && orderMatrix[i][j] != 1 { // the Up button at the top floor, as they don't exist.
-					orderMatrix[i][j] = 1
-					drivers.ElevSetButtonLamp(drivers.TagElevLampType(j), i, 1)
+			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
+				if drivers.ElevGetButtonSignal(j, i) == 1 && orderMatrix[i][j] != 1 {
+					if j==2{	
+						orderMatrix[i][2] = 1
+						drivers.ElevSetButtonLamp(drivers.TagElevLampType(2), i, 1)
+						orderCount++ // Increment number of active orders.
+					} else {
+					}
+					
 					if orderCount == 0 { //set  newOrderEvent if there is made an order to an empty orderMatrix
 						firstOrderEvent = true
 						firstOrderFloor = i //remember where to first order was made for. Might not be necessary with more elevators.
 					}
-					orderCount++ // count number of active orders.
 				}
 			}
 		}

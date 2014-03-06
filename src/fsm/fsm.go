@@ -38,12 +38,12 @@ func InitElev() int {
 	} else {
 		if drivers.ElevGetFloorSensorSignal() != -1 { //Check if the elevator is at a floor
 		} else { //else, run downwards until one is found
-			drivers.ElevSetSpeed(int(orders.Down) * Speed)
-			for drivers.ElevGetFloorSensorSignal() == -1 {
-			}
-			orders.InitOrderMod(drivers.ElevGetFloorSensorSignal())
-			drivers.ElevSetSpeed(int(orders.Up) * Speed)
-			brake()
+				drivers.ElevSetSpeed(int(orders.Down) * Speed)
+				for floor := drivers.ElevGetFloorSensorSignal(); floor == -1 {
+				}
+				orders.InitOrderMod(floor)
+				drivers.ElevSetSpeed(int(orders.Up) * Speed)
+				brake()
 		}
 		state = Idle
 		fmt.Printf("Initialized\n")
