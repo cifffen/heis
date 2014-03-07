@@ -43,10 +43,10 @@ func InitElev() int {
 				for floor == -1 {
 					floor = drivers.ElevGetFloorSensorSignal()
 				}
-				orders.InitOrderMod(floor)
 				drivers.ElevSetSpeed(int(orders.Up) * Speed)
 				brake()
 		}
+		orders.InitOrderMod(floor)
 		state = Idle
 		fmt.Printf("Initialized\n")
 		return 1

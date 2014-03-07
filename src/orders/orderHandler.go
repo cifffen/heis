@@ -3,12 +3,11 @@ package orders
 import (
 	"../drivers"
 	"../network"
-	"fmt"
+	//"fmt"
 	"time"
 )
 
 type Direction int
-
 const (
 	Down Direction = -1
 	Up             = 1
@@ -26,8 +25,8 @@ type TenderType struct{
 	val 	int
 }
 
-const TenderWon			 = 500 // Milliseconds
-const TakeLostTenderTime = 20  // Seconds
+const TakeActiveTender	 = 500 // Milliseconds
+const TakeLostTender     = 20  // Seconds
 const SamplingTime		 = 1   // Milliseconds
 const Floors 			 = 4   // Number of floors
 
@@ -71,7 +70,7 @@ func InitOrderMod(floor int) {
 //Check for events in order module
 func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, atEndEvent chan<- bool) {
 	msgChan := make(chan network.ButtonMsg)
-	network.ListenOnNetwork(msgChan)
+	go network.ListenOnNetwork(msgChan)
 	for {
 		select {
 		case <-time.After(time.Millisecond * SamplingTime):
@@ -94,34 +93,38 @@ func CheckForEvents(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, at
 
 func checkTenderMaps()(){
 	for order, tenderTime := range lostTenders {
-		if time.Since(tenderTime) > time.Second*TenderWon{
+		if time.Since(tenderTime) > time.Second*TakeActiveTender{
 				var msg network.ButtonMsg
 				msg.Action = network.AddOrder
 				msg.Order = order
+				orderHandler(msg)
 		}
 	}
 	for order, value := range activeTenders {
-		if time.Since(value.time) > time.Millisecond*TakeLostTenderTime{
+		if time.Since(value.time) > time.Millisecond*TakeLostTender{
 				var msg network.ButtonMsg
 				msg.Action = network.AddOrder
 				msg.Order = order
+				orderHandler(msg)
 		}
 	}
 }
 
 // Check for orders
 func getOrders() {
-	//firstOrderEvent := false
 	var msg network.ButtonMsg
 	msg.Action = network.NewOrder
 	for i := range locOrdMat {
 		for j := range locOrdMat[i] {
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
 				if drivers.ElevGetButtonSignal(j, i) == 1 && locOrdMat[i][j] == 0 {
-					msg.Order=network.OrderType{j, i}
-					orderHandler(msg)
-					//fmt.Printf("getorder \n")
-					
+					order = network.OrderType{j, i}
+					_, lostOk   := lostTenders[order]; 
+					_, activeOk := activeTenders[order]; 
+					if lostOk && active ok{ 	//Check that those order are not already active on the network, either as an active- or lost tender
+						msg.Order = order
+						orderHandler(msg)
+					}
 				}
 			}
 		}
@@ -170,7 +173,6 @@ func atOrder() (orderReached bool) {
 //Handles orders both locally and over the network
 func orderHandler(msg network.ButtonMsg) {
 	if checkMsg(msg) {
-		fmt.Printf("msg %d \n", msg)
 		order 		  := msg.Order
 		floor, button := order.Floor, order.Button
 		switch msg.Action {
@@ -188,7 +190,7 @@ func orderHandler(msg network.ButtonMsg) {
 						msg.Action = network.Tender
 						msg.TenderVal = cost(floor, button)
 						activeTenders[order] = TenderType{time.Now(), msg.TenderVal}
-						//network.BroadcastOnNet(msg)  // Send tender for order on network
+						go network.BroadcastOnNet(msg)  // Send tender for order on network
 					}
 				}			
 			case network.DeleteOrder:
@@ -201,7 +203,7 @@ func orderHandler(msg network.ButtonMsg) {
 				}	
 			case network.Tender:
 				if tender, ok := activeTenders[order]; ok { // Check if we already have a tender there
-					if tender.val > msg.TenderVal {				// If our tender is worse than the one received, we delete it from active tenders and add it to lost tenders and let it go
+					if tender.val > msg.TenderVal {			// If our tender is worse than the one received, we delete it from active tenders and add it to lost tenders and let it go
 						delete(activeTenders, order)
 						lostTenders[order] = time.Now()
 					} 
@@ -209,15 +211,15 @@ func orderHandler(msg network.ButtonMsg) {
 					if tenderVal := cost(floor, button); tenderVal < msg.TenderVal {
 						msg.TenderVal = tenderVal
 						activeTenders[order] = TenderType{time.Now(), tenderVal}
-						//network.BroadcastOnNet(msg)  // Send tender for order on network
+						go network.BroadcastOnNet(msg)  // Send tender for order on network
 					}
 				}
 			case network.AddOrder:
 				delete(activeTenders, order)
 				delete(lostTenders , order)
-				if locOrdMat[floor][button] != 1 {
+				if locOrdMat[floor][button]  == 0 {
 					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)
-					locOrdMat[floor][button]=1
+					locOrdMat[floor][button] = 1
 					if IsLocOrdMatEmpty() {
 						newOrder = true
 						firstOrderFloor = floor
@@ -234,10 +236,8 @@ func checkMsg(msg network.ButtonMsg) bool {
 		case network.NewOrder, network.DeleteOrder, network.Tender, network.AddOrder:
 			order 		  := msg.Order
 			floor, button := order.Floor, order.Button
-			//fmt.Printf("Floor %d, button %d \n", floor, button)
 			if((floor != 0 && floor != Floors-1) || (floor == 0 && button != DownButton) || (floor == Floors-1 && button != UpButton)){
 				if (floor>=0 && floor<Floors) && (button >=0 && button<3) && msg.TenderVal>=0 { 
-				   fmt.Printf("Floor %d, button %d \n", floor, button)
 					return true
 				}
 			}
@@ -256,7 +256,6 @@ func IsLocOrdMatEmpty() bool {
 
 //Returns current direction.
 func ReturnDirection() Direction {
-	fmt.Printf("dir top %d \n", direction)
 	if atEndFloor {
 		return direction
 	} else {
@@ -267,7 +266,6 @@ func GetDir() Direction {
 	if drivers.ElevGetFloorSensorSignal() == -1 {
 		return direction
 	}
-	fmt.Printf("dir 1%d \n", direction)
 	if orderCount == 0 { //If called and no orders exisits, just set direction to Stop and return Stop as FSM will go to Idle.
 		return Stop
 	}
@@ -295,36 +293,27 @@ func GetDir() Direction {
 		case Down:
 			currDir = DownButton
 	}
-	fmt.Printf("dir2 %d \n", direction)
 	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
-		/*
 		msg.Order=network.OrderType{currDir, prevFloor}
 		orderHandler(msg)
 		msg.Order=network.OrderType{PanelButton, prevFloor}
 		orderHandler(msg)
-		*/
-		fmt.Printf("dir3 %d \n", direction)
 		return Stop
 	} else if ordersInDir[currDir] { //Return current direction if there is an order in that direction
-			fmt.Printf("dir 6%d \n", direction)
 		return direction
 	} else if ordersAtCur[currDir+int(direction)] { //Just stay put if there is an order at current flor in opposite direction
 		firstOrderFloor = prevFloor
 		direction = -1 * direction
-		/*
 		msg.Order=network.OrderType{currDir, prevFloor}
 		orderHandler(msg)
 		msg.Order=network.OrderType{PanelButton, prevFloor}
 		orderHandler(msg)
 		msg.Order=network.OrderType{currDir+int(direction), prevFloor}
 		orderHandler(msg)
-		*/
-			fmt.Printf("dir 4%d \n", direction)
 		return Stop
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there there
 		direction = -1 * direction
 		return direction
 	}
-	fmt.Printf("dir 5%d \n", direction)
 	return direction 	// Stay put if the logic above fails (Yeah, right...)
 }
