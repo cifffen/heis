@@ -19,7 +19,7 @@ func main(){
 	/*
 	if ppSuccess==0{
 		fmt.Printf("Too many reboots. Elevator shutting down. \n") 
-		go fsm.EventManager()
+		go fsm.InitElev()
 		time.Sleep(time.Second*4)
 		os.Exit(1)	
 	} 

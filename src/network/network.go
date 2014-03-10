@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"../types"
 )
 
 var sock *net.UDPConn
@@ -13,28 +14,12 @@ var sock *net.UDPConn
 type ActionType int
 
 const NumbOfBroadcasts = 5
-const BroadCastIp = "192.168.1.255"
+const BroadCastIp = "129.241.187.255"
 const NetworkPort = ":2224"
 
-const (
-	InvalidMsg ActionType  = iota  //	Only used to check if the message recieved is of type ButtonMsg.
-	NewOrder		 //
-	DeleteOrder
-	Tender
-	AddOrder
-)
-type OrderType struct{
-	Button 	int			// Holds the button on the floor, Up or Down
-	Floor 	int			// Holds the floor
-}
 
-type ButtonMsg struct {
-	Action    	ActionType   	// Holds what the information of what to do with the message
-	Order 		OrderType 		// Holds the floor and button of the order
-	TenderVal 	int				// If the action is a Tender, this will hold the cost from the sender, that is, the value from the cost function for this order
-}
 
-func BroadcastOnNet(msg ButtonMsg) {
+func BroadcastOnNet(msg types.OrderMsg) {
 	addr, err := net.ResolveUDPAddr("udp", BroadCastIp+NetworkPort)
 	if err != nil {
 		fmt.Println(err)
@@ -45,6 +30,7 @@ func BroadcastOnNet(msg ButtonMsg) {
 	}
 	for i := 0; i < NumbOfBroadcasts; i++ {  
 		_, err = sock.WriteTo(buf, addr)
+		fmt.Printf("Printing \n")
 		if err != nil {
 			log.Println(err)
 		}
@@ -61,7 +47,7 @@ func getSelfIP() string {
 		return strings.Split(string(conn.LocalAddr().String()), ":")[0]
 	}
 }
-func ListenOnNetwork(msgChan chan<- ButtonMsg) {
+func ListenOnNetwork(msgChan chan<- types.OrderMsg) {
 	addr, err := net.ResolveUDPAddr("udp", NetworkPort)
 	if err != nil {
 		log.Printf("Error: %v. Running without network connetion", err)
@@ -77,7 +63,7 @@ func ListenOnNetwork(msgChan chan<- ButtonMsg) {
 		log.Printf("Error: %v. Sending aborted", err)
 	}
 	fmt.Println("Listnening on port", addr)
-	var msg ButtonMsg
+	var msg types.OrderMsg
 	for {
 		buf := make([]byte, 1024)
 		rlen, addr, err := sock.ReadFromUDP(buf)
@@ -85,7 +71,8 @@ func ListenOnNetwork(msgChan chan<- ButtonMsg) {
 			err = json.Unmarshal(buf[0:rlen], &msg)
 			if err != nil {
 				log.Printf("Error: %v.", err)
-			} else if msg.Action != InvalidMsg{  // If the message received is not of type ButtonMsg, all elements of msg will be zero(msg={0,0,0}), so we can check if it is valid or not
+			} else if msg.Action != types.InvalidMsg{  // If the message received is not of type OrderMsg, all elements of msg will be zero(msg={0,0,0}), so we can check if it is valid or not
+				fmt.Printf("Msg in network: %d \n", msg)
 				msgChan <- msg
 			}
 		}
