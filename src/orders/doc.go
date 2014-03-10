@@ -7,7 +7,7 @@ use of package variables to have better control over where the variables can be 
 Functions:
 func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, switchDirEvent chan<- Direction, noOrdersEvent chan<- bool)
 - The module boss. Everything in the module will go through the orderhandler. It directs everything in the module and launches events on the event channels.
-func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *map[types.OrderType] TenderType, lTenders *map[types.OrderType] time.Time, prevFloor int, dir Direction, netAlive bool)(newOrder bool)
+func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[types.OrderType] TenderType, lTen *map[types.OrderType] time.Time, prevFloor int, dir Direction, netAlive bool)(newOrder bool)
 - The messages handler does, as the name implies, handle messages. Almost everything order related is sent as a OrderMsg struct to MsgHandler who acts accoringly
 to the message type. Takes care of both the local order matrix and the
 func checkTenderMaps(aTenders map[types.OrderType] TenderType, lTenders map[types.OrderType] time.Time)(tenderAction bool, tenderOrders []types.OrderMsg)

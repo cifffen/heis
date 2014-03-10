@@ -106,7 +106,7 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 }
 
 //Handles orders both locally and over the network
-func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *map[types.OrderType] TenderType, lTenders *map[types.OrderType] time.Time, prevFloor int, dir Direction, netAlive bool)(newOrder bool) {
+func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[types.OrderType] TenderType, lTen *map[types.OrderType] time.Time, prevFloor int, dir Direction, netAlive bool)(newOrder bool) {
 	newOrder = false
 	if checkMsg(msg) {     // Check if message is valid
 		order := msg.Order
@@ -123,15 +123,15 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *
 					} else {															// If the order is from the direction panel, -
 						msg.Action = types.Tender										// we calculate our tender, add  to active tenders list and - 
 						msg.TenderVal = cost(floor, button, *locOrdMat, prevFloor, dir) // start a tender session on the network. Lowest tender "wins" the order.
-						(*aTenders)[order] = TenderType{time.Now(), msg.TenderVal}  	// Add tender to active tenders
+						(*aTen)[order] = TenderType{time.Now(), msg.TenderVal}  	// Add tender to active tenders
 						if netAlive {													// Broadcast our tender only if the network is still runnnings
 							network.BroadcastOnNet(msg)  								
 						}
 					}
 				}			
 			case types.DeleteOrder:            // Delete order
-				delete(*aTenders, order)
-				delete(*lTenders , order)
+				delete(*aTen, order)
+				delete(*lTen , order)
 				drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 0)
 				if (*locOrdMat)[floor][button] == 1 { 	// If it is "our" order -
 					(*locOrdMat)[floor][button]=0	   	// we delete it and -
@@ -142,25 +142,25 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *
 				}	
 			case types.Tender:
 			   drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)
-				if tender, ok := (*aTenders)[order]; ok { // Check if we already have a tender there
+				if tender, ok := (*aTen)[order]; ok { // Check if we already have a tender there
 					if tender.val > msg.TenderVal {		// If our tender is worse than the one received -
-						delete(*aTenders, order)		// we delete it from active tenders -
-						(*lTenders)[order] = time.Now()	// and add it to lost tenders 
+						delete(*aTen, order)		// we delete it from active tenders -
+						(*lTen)[order] = time.Now()	// and add it to lost tenders 
 					} 
 				} else {																// If we don't already have a tender at that order, 
 					if tenderVal := cost(floor, button, *locOrdMat, prevFloor, dir); tenderVal < msg.TenderVal {	// we calculate a tender for it and check if ours is better than there's
 						msg.TenderVal = tenderVal										// If our tender is better -
-						(*aTenders)[order] = TenderType{time.Now(), tenderVal}			// we add it to active tenders
+						(*aTen)[order] = TenderType{time.Now(), tenderVal}			// we add it to active tenders
 						if netAlive {													// If he network is still running
 							network.BroadcastOnNet(msg)  								//we send it out on the network
 						}
 					} else {
-						(*lTenders)[order] = time.Now() 			// If our tenders is worse, we add it to lost tenders
+						(*lTen)[order] = time.Now() 			// If our tenders is worse, we add it to lost tenders
 					}
 				}
 			case types.AddOrder:	// Directly add an order from active tenders if the time has run out
-				delete(*aTenders, order)
-				delete(*lTenders , order)
+				delete(*aTen, order)
+				delete(*lTen , order)
 				if (*locOrdMat)[floor][button]  == 0 { // Make sure we already don't have that order (should not happen)
 					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)  // Set order lamp	
 					if isLocOrdMatEmpty(*locOrdMat) { // Launch new order event if the order list is empty
@@ -174,10 +174,10 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *
 	return
 }
 // Check the tender maps. 
-func checkTenderMaps(aTenders map[types.OrderType] TenderType, lTenders map[types.OrderType] time.Time)(tenderAction bool, tenderOrders []types.OrderMsg){
+func checkTenderMaps(aTen map[types.OrderType] TenderType, lTen map[types.OrderType] time.Time)(tenderAction bool, tenderOrders []types.OrderMsg){
 	var msg types.OrderMsg
 	tenderAction = false
-	for order, tenderTime := range lTenders {   
+	for order, tenderTime := range lTen {   
 		if time.Since(tenderTime) > time.Second*TakeLostTender{  	// If the time for the lost tender has run out
 				msg.Order     = order								// we delete the order from our lists
 				msg.Action    = types.DeleteOrder					// and start a new tender session on the network for the order
@@ -187,7 +187,7 @@ func checkTenderMaps(aTenders map[types.OrderType] TenderType, lTenders map[type
 				tenderAction  = true
 		}
 	}
-	for order, value := range aTenders {
+	for order, value := range aTen {
 		if time.Since(value.time) > time.Millisecond*TakeActiveTender{  // If the time has passed, we have won the tender and can add it to our order list
 				msg.Order     = order
 				msg.Action    = types.AddOrder
@@ -282,7 +282,7 @@ func checkForOrders(locOrdMat[Floors][Buttons] int, prevFloor int)(ordersAtCurFl
 	return
 }
 // Check for orders
-func getOrders(locOrdMat *[Floors][Buttons] int, aTenders map[types.OrderType] TenderType, lTenders map[types.OrderType] time.Time )(newOrders bool, orders []types.OrderMsg ) {
+func getOrders(locOrdMat *[Floors][Buttons] int, aTen map[types.OrderType] TenderType, lTen map[types.OrderType] time.Time )(newOrders bool, orders []types.OrderMsg ) {
 	newOrders = false
 	var msg types.OrderMsg
 	msg.Action = types.NewOrder
@@ -291,8 +291,8 @@ func getOrders(locOrdMat *[Floors][Buttons] int, aTenders map[types.OrderType] T
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
 				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 { // If a button is pushed and we dont have an order there already
 					order := types.OrderType{j, i}
-					_, lostOk   := lTenders[order]; 
-					_, activeOk := aTenders[order]; 
+					_, lostOk   := lTen[order]; 
+					_, activeOk := aTen[order]; 
 					if !lostOk && !activeOk{ 		//Check that those order are not already active on the network, either as an active- or lost tender
 						newOrders = true
 						msg.Order = order
