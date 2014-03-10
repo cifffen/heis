@@ -9,7 +9,6 @@ import (
 )
 
 type Direction int
-
 const (
 	Down Direction = -1
 	Up             = 1
@@ -22,7 +21,7 @@ const (
 	PanelButton
 )
 
-type TenderType struct{
+type TenderType struct{ // Tender type used in active tenders. Holds the start time of the tender and the elevators tender value
 	time 	time.Time
 	val 	int
 }
@@ -55,12 +54,12 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 	//---- Init complete ------//
 	for {
 		select {
-		case <-time.After(time.Millisecond * SamplingTime): 	//Only check for events bellow every Sampling time [ms]
+		case <-time.After(time.Millisecond * SamplingTime): //Only check for events bellow every Sampling time [ms]
 			if newOrders, msgSlice := getOrders(&locOrdMat, activeTenders, lostTenders); newOrders {  // Check for new orders.
-				for _, msg := range msgSlice {  // Go through all new orders and process them in msgHandler
+				for _, msg := range msgSlice {  			// Go through all new orders and process them in msgHandler
 					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
-						newOrderEvent <-true  	// New order from an empty order matrix has occured
-						noOrders = false		// Must be set false as we now have an order in the order list
+						newOrderEvent <-true  				// New order from an empty order matrix has occured
+						noOrders = false					// Must be set false as we now have an order in the order list
 					}
 				}
 			}
@@ -73,21 +72,19 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 					for _ , msg := range delOrders {
 						if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
 						   newOrderEvent <-true  	// New order from an empty order matrix has occured
-						   noOrders = false		// Must be set false as we now have an order in the order list
+						   noOrders = false			// Must be set false as we now have an order in the order list
 					   }
 					}
 				}
 				orderReachedEvent <- true
 			}
-			if currDir := getDir(direction, prevFloor, locOrdMat); currDir !=  prevDirection{
-				switchDirEvent <- currDir
-				prevDirection = currDir
-				fmt.Printf("direction here: %d \n", direction)
-				if currDir != Stop {
+			if currDir := getDir(direction, prevFloor, locOrdMat); currDir !=  prevDirection{   // If we get a new direction different from the previous
+				switchDirEvent <- currDir														// We launch the switch direction event and -
+				prevDirection = currDir															// update the previous direciton variable.
+				if currDir != Stop {															// Update the direction variable if it isn't Stop
 					direction = currDir
 				}
 			}
-
 			if tenderAction , tenderOrders := checkTenderMaps(activeTenders, lostTenders); tenderAction{ // If some times for the tenders on the tender lists have run out -
 				for _, msg := range tenderOrders {
 					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{ // we let msgHandler handle the messages/orders. Add them if they are from active tenders or start a new tender session over the network if they are from lost tenders
@@ -182,8 +179,8 @@ func checkTenderMaps(aTenders map[types.OrderType] TenderType, lTenders map[type
 	tenderAction = false
 	for order, tenderTime := range lTenders {   
 		if time.Since(tenderTime) > time.Second*TakeLostTender{  	// If the time for the lost tender has run out
-				msg.Order     = order									// we delete the order from our lists
-				msg.Action    = types.DeleteOrder							// and start a new tender session on the network for the order
+				msg.Order     = order								// we delete the order from our lists
+				msg.Action    = types.DeleteOrder					// and start a new tender session on the network for the order
 				tenderOrders  = append(tenderOrders,msg)
 				msg.Action 	  = types.NewOrder
 				tenderOrders  = append(tenderOrders,msg)
@@ -200,7 +197,6 @@ func checkTenderMaps(aTenders map[types.OrderType] TenderType, lTenders map[type
 	}
 	return
 }
-
 // Check if the elevator should stop at a floor it passes
 func atOrder(locOrdMat[Floors][Buttons] int, prevDir Direction, prevFloor *int) (orderReached bool, del bool, delOrders []types.OrderMsg) {
 	floor := drivers.ElevGetFloorSensorSignal()
@@ -209,12 +205,6 @@ func atOrder(locOrdMat[Floors][Buttons] int, prevDir Direction, prevFloor *int) 
 	if floor != -1 {
 		*prevFloor = floor
 		drivers.ElevSetFloorIndicator(floor) 	//Set floor indicator
-		/*
-		if isLocOrdMatEmpty(locOrdMat){  		// Stop at this floor if we have no orders in our order list (should not happen)
-			orderReached = true
-			return
-		}
-		*/
 		var msg types.OrderMsg
 		msg.Action = types.DeleteOrder
 		ordersAtCur, ordersInDir := checkForOrders(locOrdMat, *prevFloor)
@@ -249,7 +239,6 @@ func atOrder(locOrdMat[Floors][Buttons] int, prevDir Direction, prevFloor *int) 
 	}
 	return 
 }
-
 //Checks that the message is valid
 func checkMsg(msg types.OrderMsg) bool {
 	switch msg.Action {
@@ -264,7 +253,7 @@ func checkMsg(msg types.OrderMsg) bool {
 	}
 	return false
 }
-
+// Check if the locOrdMat is empty.
 func isLocOrdMatEmpty(locOrdMat [Floors][Buttons] int) bool {
 	for i := range locOrdMat {
 		for _, order := range locOrdMat[i] {
@@ -275,7 +264,23 @@ func isLocOrdMatEmpty(locOrdMat [Floors][Buttons] int) bool {
 	}
 	return true
 }
-
+// Return all orders on the current floor in ordersAtCurFloor. OrderInDir's elements will be true if there is an order further in that direction. [0] is up, [1] is down
+func checkForOrders(locOrdMat[Floors][Buttons] int, prevFloor int)(ordersAtCurFloor[Buttons] bool, ordersInDir[2] bool) {
+	for i := range locOrdMat {
+		for j := range locOrdMat[i] {
+			if locOrdMat[i][j] == 1 {
+				if i == prevFloor { 		//check for orders at current floor
+					ordersAtCurFloor[j] = true
+				} else if i > prevFloor { 	// check for orders upwards
+					ordersInDir[UpButton] = true
+				} else if i < prevFloor { 	// check for orders downwards
+					ordersInDir[DownButton] = true
+				}
+			}
+		}
+	}
+	return
+}
 // Check for orders
 func getOrders(locOrdMat *[Floors][Buttons] int, aTenders map[types.OrderType] TenderType, lTenders map[types.OrderType] time.Time )(newOrders bool, orders []types.OrderMsg ) {
 	newOrders = false
@@ -284,14 +289,14 @@ func getOrders(locOrdMat *[Floors][Buttons] int, aTenders map[types.OrderType] T
 	for i := range *locOrdMat {
 		for j := range (*locOrdMat)[i] {
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
-				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 {
+				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 { // If a button is pushed and we dont have an order there already
 					order := types.OrderType{j, i}
 					_, lostOk   := lTenders[order]; 
 					_, activeOk := aTenders[order]; 
-					if !lostOk && !activeOk{ 	//Check that those order are not already active on the network, either as an active- or lost tender
+					if !lostOk && !activeOk{ 		//Check that those order are not already active on the network, either as an active- or lost tender
 						newOrders = true
 						msg.Order = order
-						orders = append(orders, msg)
+						orders = append(orders, msg) 
 					}
 				}
 			}
@@ -299,13 +304,13 @@ func getOrders(locOrdMat *[Floors][Buttons] int, aTenders map[types.OrderType] T
 	}
 	return
 }
-
+// Get what direction to travel
 func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) Direction {
-	if isLocOrdMatEmpty(locOrdMat){
-		return Stop
-	} else if prevFloor == Floors-1 {
+	if isLocOrdMatEmpty(locOrdMat){   	// If there are no orders, we should just stop
+		return Stop						
+	} else if prevFloor == Floors-1 {	// If we are at the top, the only way to go is down
 		return Down
-	} else if prevFloor == 0{
+	} else if prevFloor == 0{ 			// if you're at the bottom you can only look up.
 		return Up
 	}
 	ordersAtCur, ordersInDir := checkForOrders(locOrdMat, prevFloor)
@@ -338,21 +343,3 @@ func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) 
 	return direction 	// Stay put if the logic above fails (Yeah, right...)
 }
 
-// Return all orders on the current floor in ordersAtCurFloor. OrderInDir's elements will be true if there is an order further in that direction. [0] is up, [1] is down
-func checkForOrders(locOrdMat[Floors][Buttons] int, prevFloor int)(ordersAtCurFloor[Buttons] bool, ordersInDir[2] bool) {
-	for i := range locOrdMat {
-		for j := range locOrdMat[i] {
-			if locOrdMat[i][j] == 1 {
-				if i == prevFloor { 		//check for orders at current floor
-					ordersAtCurFloor[j] = true
-				} else if i > prevFloor { 	// check for orders upwards
-					ordersInDir[UpButton] = true
-				} else if i < prevFloor { 	// check for orders downwards
-					ordersInDir[DownButton] = true
-				}
-			}
-		}
-	}
-	return
-}
-	
