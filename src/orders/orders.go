@@ -1,4 +1,3 @@
-
 package orders
 
 import (
@@ -28,35 +27,38 @@ type TenderType struct{
 	val 	int
 }
 
-const TakeActiveTender	 = 1000 // Milliseconds
+const TakeActiveTender	 = 100 // Milliseconds
 const TakeLostTender     = 20  // Seconds
 const SamplingTime		 = 1   // Milliseconds
 const Floors 			 = 4   // Number of floors
 const Buttons			 = 3   // Number of buttons
 
 func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, switchDirEvent chan<- Direction, noOrdersEvent chan<- bool) {
-	var direction 		Direction 	// Keeps the last direction the elevator was heading. Can only be changed in atOrder() and GetDir()
-	var prevDirection Direction
-	var prevFloor 		int      	// Holds the previous floor the elevator past. Can only be changed at atOrder()
+	var direction 		Direction 	// Keeps the last direction the elevator was heading. Can only be Up or down
+	var prevDirection   Direction	// Keeps the last direction the elevator was heading. Can be Up, Down or Stop
+	var prevFloor 		int      	// Holds the previous floor the elevator went past. 
 	var noOrders		bool		// True if we have no orders in locOrdMat
+	var netAlive 		bool		// True if the network is up and running
 	var locOrdMat [Floors][3]int 	// Holds the orders that the elevator has accepted and will carry out
-	var activeTenders map[types.OrderType] 	TenderType
-	var lostTenders map[types.OrderType] 		time.Time
+	var activeTenders map[types.OrderType] 	TenderType  // Holds all active tenders, the time they were started and what the tender value is
+	var lostTenders map[types.OrderType] 	time.Time	// Holds all lost tenders and the time they were started (lost)
 	
 	//---- Start Init of variables and network--------//
-	direction 		= Down
-	noOrders		= true
-	activeTenders 	= make(map[types.OrderType] TenderType)
-	lostTenders 	= make(map[types.OrderType] time.Time)
-	msgChan 		:= make(chan types.OrderMsg)
-	go network.ListenOnNetwork(msgChan)
+	direction 		=  Down
+	noOrders		=  true
+	netAlive		=  true
+	activeTenders 	=  make(map[types.OrderType] TenderType)
+	lostTenders 	=  make(map[types.OrderType] time.Time)
+	msgChan 		:= make(chan types.OrderMsg) // Channel used to send messages from the network module
+	netChan			:= make(chan bool)			 // Channel used to tell if the network module has shut downs
+	go network.ListenOnNetwork(msgChan, networkAlive)
 	//---- Init complete ------//
 	for {
 		select {
 		case <-time.After(time.Millisecond * SamplingTime): 	//Only check for events bellow every Sampling time [ms]
 			if newOrders, msgSlice := getOrders(&locOrdMat, activeTenders, lostTenders); newOrders {  // Check for new orders.
 				for _, msg := range msgSlice {  // Go through all new orders and process them in msgHandler
-					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction); newOrder{
+					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
 						newOrderEvent <-true  	// New order from an empty order matrix has occured
 						noOrders = false		// Must be set false as we now have an order in the order list
 					}
@@ -69,7 +71,7 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 			if orderReached, del, delOrders := atOrder(locOrdMat, direction, &prevFloor); orderReached { // Launch event if we reach an order	
 				if del {							// If we have orders to delete, delete them
 					for _ , msg := range delOrders {
-						if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction); newOrder{
+						if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
 						   newOrderEvent <-true  	// New order from an empty order matrix has occured
 						   noOrders = false		// Must be set false as we now have an order in the order list
 					   }
@@ -88,7 +90,7 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 
 			if tenderAction , tenderOrders := checkTenderMaps(activeTenders, lostTenders); tenderAction{ // If some times for the tenders on the tender lists have run out -
 				for _, msg := range tenderOrders {
-					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction); newOrder{ // we let msgHandler handle the messages/orders. Add them if they are from active tenders or start a new tender session over the network if they are from lost tenders
+					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{ // we let msgHandler handle the messages/orders. Add them if they are from active tenders or start a new tender session over the network if they are from lost tenders
 						newOrderEvent <-true  	// New order from an empty order matrix has occured
 						noOrders = false		// Must be set false as we now have an order in the order list
 					}  
@@ -96,16 +98,18 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 			}
 			
 		case msg:= <-msgChan:  // Received message on the network
-			if newOrder := msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction); newOrder{
+			if newOrder := msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
 				newOrderEvent <-true  // New order from an empty order matrix has occured
 				noOrders = false		// Must be set false as we now have an order in the order list
 			}
+		case netAlive = <-netChan:
+			fmt.Printf("Running without network connetion.\n")
 		}
 	}
 }
 
 //Handles orders both locally and over the network
-func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *map[types.OrderType] TenderType, lTenders *map[types.OrderType] time.Time, prevFloor int, direction Direction)(newOrder bool) {
+func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *map[types.OrderType] TenderType, lTenders *map[types.OrderType] time.Time, prevFloor int, dir Direction, netAlive bool)(newOrder bool) {
 	newOrder = false
 	if checkMsg(msg) {     // Check if message is valid
 		order := msg.Order
@@ -119,11 +123,13 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *
 							newOrder = true
 						}
 						(*locOrdMat)[floor][button]=1	
-					} else {								// If the order is from the direction panel, -
-						msg.Action = types.Tender					// we calculate our tender, add  to active tenders list and - 
-						msg.TenderVal = cost(floor, button, *locOrdMat, prevFloor, direction) // start a tender session on the network. Lowest tender "wins" the order.
-						(*aTenders)[order] = TenderType{time.Now(), msg.TenderVal}  // Add tender to active tenders
-						network.BroadcastOnNet(msg)  
+					} else {															// If the order is from the direction panel, -
+						msg.Action = types.Tender										// we calculate our tender, add  to active tenders list and - 
+						msg.TenderVal = cost(floor, button, *locOrdMat, prevFloor, dir) // start a tender session on the network. Lowest tender "wins" the order.
+						(*aTenders)[order] = TenderType{time.Now(), msg.TenderVal}  	// Add tender to active tenders
+						if netAlive {													// Broadcast our tender only if the network is still runnnings
+							network.BroadcastOnNet(msg)  								
+						}
 					}
 				}			
 			case types.DeleteOrder:            // Delete order
@@ -132,8 +138,10 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *
 				drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 0)
 				if (*locOrdMat)[floor][button] == 1 { 	// If it is "our" order -
 					(*locOrdMat)[floor][button]=0	   	// we delete it and -
-					msg.Action = types.DeleteOrder			// tell the other elevators on the network to delete it from there tender lists
-					network.BroadcastOnNet(msg)
+					msg.Action = types.DeleteOrder		// and iff he network is still running we broadcast to the others to delete it aswell
+					if net alive{
+						network.BroadcastOnNet(msg)		
+					}
 				}	
 			case types.Tender:
 			   drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)
@@ -143,10 +151,12 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTenders *
 						(*lTenders)[order] = time.Now()	// and add it to lost tenders 
 					} 
 				} else {																// If we don't already have a tender at that order, 
-					if tenderVal := cost(floor, button, *locOrdMat, prevFloor, direction); tenderVal < msg.TenderVal {	// we calculate a tender for it and check if ours is better than there's
+					if tenderVal := cost(floor, button, *locOrdMat, prevFloor, dir); tenderVal < msg.TenderVal {	// we calculate a tender for it and check if ours is better than there's
 						msg.TenderVal = tenderVal										// If our tender is better -
 						(*aTenders)[order] = TenderType{time.Now(), tenderVal}			// we add it to active tenders
-						network.BroadcastOnNet(msg)  									//we send it out on the network
+						if netAlive {													// If he network is still running
+							network.BroadcastOnNet(msg)  								//we send it out on the network
+						}
 					} else {
 						(*lTenders)[order] = time.Now() 			// If our tenders is worse, we add it to lost tenders
 					}
