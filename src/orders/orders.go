@@ -50,7 +50,7 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 	lostTenders 	=  make(map[types.OrderType] time.Time)
 	msgChan 		:= make(chan types.OrderMsg) // Channel used to send messages from the network module
 	netChan			:= make(chan bool)			 // Channel used to tell if the network module has shut downs
-	go network.ListenOnNetwork(msgChan, networkAlive)
+	go network.ListenOnNetwork(msgChan, netChan)
 	//---- Init complete ------//
 	for {
 		select {

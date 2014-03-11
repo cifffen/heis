@@ -21,13 +21,13 @@ func StartSlave()() {
 	}	
 }	
 
-func UdpListenToMaster(number chan<- int, sock *net.UDPConn)() {	
+func UdpListenToMaster(number chan<- int, sock **net.UDPConn)() {	
 	addr, err := net.ResolveUDPAddr("udp", ProPairsPort)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	} 
-	sock, err = net.ListenUDP("udp", addr)
+	*sock, err = net.ListenUDP("udp", addr)
 	if err != nil {
 		fmt.Println(err)
 		time.Sleep(time.Second*4)
@@ -63,26 +63,30 @@ func UdpHeartBeat(number int)(){
 
 func ProcessPairs(args []string) int {
 	if len(os.Args)==1{
+		time.Sleep(time.Second*3)
 		StartSlave()
 		go UdpHeartBeat(0)
+		return 1
 	} else if os.Args[1] == "Slave" {
 		ticker := time.NewTicker(time.Second*1)
 		numberChan := make(chan int)
 		var sock *net.UDPConn
-		go UdpListenToMaster(numberChan, sock)
+		go UdpListenToMaster(numberChan, &sock)
 		var num int	
 		for {
 			select {
 				case num = <-numberChan:
 					ticker.Stop()
-					ticker = time.NewTicker(time.MilliSecond*HeartBeat)
+					ticker = time.NewTicker(time.Millisecond*HeartBeat)
 				case <-ticker.C:
 					sock.Close()
+					time.Sleep(time.Millisecond*200)
 					num++
 					go UdpHeartBeat(num)
 					if num >=3 {
 						return 0
 					} else {
+						time.Sleep(time.Second*4)
 						StartSlave()
 						return 1
 					}
@@ -90,10 +94,5 @@ func ProcessPairs(args []string) int {
 		}
 	} 
 	fmt.Printf("Error: Wrong input. Running without processparis.")
-	return 1 
+	return 1
 }
-
-
-
-
-

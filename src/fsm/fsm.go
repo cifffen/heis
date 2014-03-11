@@ -82,7 +82,7 @@ func EventManager() {
 		case <-brakeTimer: // Brake finished. Set speed to 0
 			drivers.ElevSetSpeed(int(orders.Stop))
 		case <-newOrderEvent: // New order so noOrders must be set to false
-			noOrders = false
+			fsm.noOrders = false
 			fsm.state(NewOrder)
 		case dir := <-switchDirEvent: // A direction change must happen, so direction is changed for the next time we set elevSetSpeed()
 			fsm.direction = int(dir) // Converting from type orders.Direction to int to simplify
@@ -124,7 +124,7 @@ func (fsm *FSM) atFloorState(event Event) {
 	switch event {
 	case TimerFinished: // When the door timer is finished we turn of the door lights
 		drivers.ElevSetDoorOpenLamp(0)
-		if noOrders { // If there aren't any more order we go to the idle state
+		if fsm.noOrders { // If there aren't any more order we go to the idle state
 			fsm.state = fsm.idleState
 		} else { // If there are more orders we set speed and go to the running state
 			drivers.ElevSetSpeed(fsm.direction * Speed)
