@@ -31,7 +31,7 @@ func main(){
 	newOrderEvent 		:= make(chan bool)
 	newDirEvent 		:= make(chan int)
 	noOrdersEvent 		:= make(chan bool)
-	doorOpen		:= make(chan bool)
+	doorOpen		 := make(chan bool)
 	// Network  and message channels
 	msgInChan 		:= make(chan types.OrderMsg) // Channel used to send messages from the network module
 	msgOutChan 		:= make(chan types.OrderMsg) // Channel used to send messages to the network module

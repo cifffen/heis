@@ -8,7 +8,7 @@ import (
 const floorValue 	 = 3 	//Time to travel from one floor to the next
 const waitValue      = 3 	//Time spent for each stop
 const directionValue = 20 	//Extra cost if the order is in a conflicting direction
-
+const twoDirSameFloorValue = 3 //Extra cost if the floor already has an order on the floor, in the opposite direction
 
 func cost(orderFloor int, orderType int, locOrdMat [Floors][Buttons] int, prevFloor int, direction Direction) (cost int) {
 	if isMatrixEmpty(locOrdMat){
@@ -18,7 +18,7 @@ func cost(orderFloor int, orderType int, locOrdMat [Floors][Buttons] int, prevFl
 		cost = getTravelCost(orderFloor, prevFloor)
 		cost += getWaitCost(orderFloor, orderType, locOrdMat, prevFloor, direction)
 		cost += getDirectionCost(orderFloor, orderType, direction, prevFloor, locOrdMat)
-
+        cost += getTwoDirSameFloorCost(orderFloor, orderType, locOrdMat)
 		return
 	}
 }
@@ -87,3 +87,23 @@ func onlyOppositeDirection(orderType int, locOrdMat [Floors][Buttons] int) bool 
     }
     return true
 }
+
+func getTwoDirSameFloorCost(orderFloor int, orderType int, locOrdMat [Floors][Buttons] int) int {
+    if orderType == 0 {
+        if locOrdMat[orderFloor][1] == 1{
+            return twoDirSameFloorValue
+        }
+    }
+    if locOrdMat[orderFloor][0] == 1{
+        return twoDirSameFloorValue
+    }
+    return 0
+}
+    
+     
+               
+        
+        
+        
+        
+

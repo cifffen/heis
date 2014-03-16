@@ -43,15 +43,17 @@ func UdpListenToMaster(number chan<- int, sock **net.UDPConn)() {
 		time.Sleep(time.Second*2)
 		os.Exit(1)
 	}
+	check := false
 	for {
 		buf :=make([]byte,1024)
 		_, _, err := sock.ReadFromUDP(buf)
-		if err != nil {
+		if err != nil && !check {
 			log.Printf("Error: %v", err)	
 			fmt.Printf("Shuting down slave.\n")
 			time.Sleep(time.Second*2)
 			os.Exit(1)
 		}
+		check = true
 		number<-int(buf[0])
 	}
 }
@@ -65,7 +67,7 @@ func UdpHeartBeat(number int)(){
 				if err != nil {
 					log.Printf("Error: %v ", err)
 					fmt.Printf("Shuting down.\n")
-					time.Sleep(time.Second*4)
+					time.Sleep(time.Second*2)
 					os.Exit(1)
 				}
 				buf :=[]byte(string(number))
@@ -73,7 +75,7 @@ func UdpHeartBeat(number int)(){
 				if err != nil {
 					log.Printf("Error: %v ", err)
 					fmt.Printf("Shuting down.\n")
-					time.Sleep(time.Second*4)
+					time.Sleep(time.Second*2)
 					os.Exit(1)
 				}
 		}

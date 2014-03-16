@@ -62,6 +62,10 @@ func getDirectionCost(orderFloor int, orderType int, direction Direction, prevFl
 			return
 		}
 	}else{
+		if(onlyOppositeDirection(orderType, locOrdMat)){
+	        directionCost=directionValue
+		    return
+		}
 		if((orderType != 0 || (orderType == 0 && orderFloor == 0)) && orderFloor < prevFloor){
 			directionCost = 0
 			return

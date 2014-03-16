@@ -7,12 +7,12 @@ import (
 	"../types"
 	"os"
     "../network"
-	//"../pp"
+	"../pp"
 	"time"
 )
 
 func main(){
-	/*
+	
 	ppSuccess := pp.ProcessPairs(os.Args)    // Launch process pairs
 	if ppSuccess==0{   // If the elevator program has crahsed too many times, process pairs will shut down and the program stops.
 		fmt.Printf("Too many reboots. Elevator shutting down. \n") 
@@ -20,7 +20,7 @@ func main(){
 		time.Sleep(time.Second*4) // Sleep for 4 seconds so we can get the init done.
 		os.Exit(1)	
 	} 
-	*/
+	
 	if fsm.InitElev()==0{ // If we fail to init the IO we exit the program. Process pairs will eventually start the program back up again
 		fmt.Printf("Error: Unable to initialize elevator hardware. Shuting down.\n")
 		time.Sleep(time.Second*4) // Sleep for a few seconds so we can read the error message.

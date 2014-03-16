@@ -25,8 +25,8 @@ type TenderType struct{ // Tender type used in active tenders. Holds the start t
 	val	int
 }
 
-const TakeActiveTender	 = 100 // Milliseconds
-const TakeLostTender     = 20  // Seconds
+const TakeActiveTender	 = 200 // Milliseconds
+const TakeLostTender     = 15  // Seconds
 const SamplingTime		 = 1   // Milliseconds
 const Floors			 = 4   // Number of floors
 const Buttons			 = 3   // Number of buttons

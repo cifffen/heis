@@ -27,6 +27,7 @@ const NonJsonInt	    = 60				// Number of seconds in the intervall where we chec
 
 //Broadcast message on the local network at the given port
 func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) {
+	errorCount := 0;
 	for{
 		select {
 		case msg := <-msgOutChan:
@@ -38,10 +39,18 @@ func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) {
 			if err != nil {
 				log.Printf("Error: %v",err)
 			}
-			for i := 0; i < NumbOfBroadcasts; i++ {  
-				_, err = sock.WriteTo(buf, addr)
+			for i := 0; i < NumbOfBroadcasts; i++ {
+				if errorCount =< 10{  
+					_, err = sock.WriteTo(buf, addr)
+				}
 				if err != nil {
 					log.Printf("Error: %v",err)
+					errorCount++					
+					if errorCount > 10{
+						fmt.Printf("Too many errors. Running without network broadcasting.\n")
+						
+					}
+						
 				}
 			}
 		}
