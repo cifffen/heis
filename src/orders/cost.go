@@ -13,7 +13,7 @@ const directionValue = 20 	//Extra cost if the order is in a conflicting directi
 
 
 func cost(orderFloor int, orderType int, locOrdMat [Floors][Buttons] int, prevFloor int, direction Direction) (cost int) {
-	if isLocOrdMatEmpty(locOrdMat){
+	if isMatrixEmpty(locOrdMat){
 		cost = getTravelCost(orderFloor, prevFloor)
 		fmt.Printf("Cost:%d\n", cost)
 		return

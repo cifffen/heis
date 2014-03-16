@@ -1,8 +1,8 @@
 package network
 /*
 Holds the functions used for communication on the network. 
-Functions:
-func BroadcastOnNet(msg types.OrderMsg) - Broadcasts a message on the network
+Interface:
+func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) - Broadcasts a message on the network
 func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) - Listens for messages on the network and send them over the msgChan. 
 */
 
@@ -26,19 +26,24 @@ const MaxNonJson		= 10 				// Holds the given amount of non JSON messages reveic
 const NonJsonInt	    = 60				// Number of seconds in the intervall where we check for invalid JSON messages
 
 //Broadcast message on the local network at the given port
-func BroadcastOnNet(msg types.OrderMsg) {
-	addr, err := net.ResolveUDPAddr("udp", BroadCastIp+NetworkPort)
-	if err != nil {
-		log.Printf("Error: %v",err)
-	}
-	buf, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Error: %v",err)
-	}
-	for i := 0; i < NumbOfBroadcasts; i++ {  
-		_, err = sock.WriteTo(buf, addr)
-		if err != nil {
-			log.Printf("Error: %v",err)
+func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) {
+	for{
+		select {
+		case msg := <-msgOutChan:
+			addr, err := net.ResolveUDPAddr("udp", BroadCastIp+NetworkPort)
+			if err != nil {
+				log.Printf("Error: %v",err)
+			}
+			buf, err := json.Marshal(msg)
+			if err != nil {
+				log.Printf("Error: %v",err)
+			}
+			for i := 0; i < NumbOfBroadcasts; i++ {  
+				_, err = sock.WriteTo(buf, addr)
+				if err != nil {
+					log.Printf("Error: %v",err)
+				}
+			}
 		}
 	}
 }
@@ -54,7 +59,7 @@ func getSelfIP() string {
 	}
 }
 // Listen for messages over the network
-func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) {
+func ListenOnNetwork(msgInChan chan<- types.OrderMsg, networkAlive chan<- bool) {
 	addr, err := net.ResolveUDPAddr("udp", NetworkPort)
 	if err != nil {			// If we have an error here we can't listen on the network, so we tell the order module that we are shutting down before we do.
 		log.Printf("Error: %v", err)
@@ -80,7 +85,7 @@ func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) {
 	buf := make([]byte, 1024)
 	for {
 		rlen, addr, err := sock.ReadFromUDP(buf)
-		if err != nill{
+		if err != nil{
 			log.Printf("Error: %v", err)
 		} else if addr != sAddr { 	// Don't handle if it's from the computer
 			err = json.Unmarshal(buf[0:rlen], &msg)
@@ -91,12 +96,12 @@ func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) {
 					nonJson =0
 				}
 				intTime = time.Now()			 // Restart time if there is a wrong message
-				if tooManyNonJson > MaxNonJson{  //If we get to many messages that aren't JSON object, we shut down the network mod
+				if nonJson > MaxNonJson{  //If we get to many messages that aren't JSON object, we shut down the network mod
 					networkAlive <- false
 					return
 				}
 			} else if msg.Action != types.InvalidMsg{  // If the message received is not of type OrderMsg, all elements of msg will be zero(msg={0,0,0}), so we can check if it is valid or not
-				msgChan <- msg
+				msgInChan <- msg
 			}
 		}
 	}

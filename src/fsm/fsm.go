@@ -2,7 +2,6 @@ package fsm
 
 import (
 	"../drivers"
-	"../orders"
 	"fmt"
 	"time"
 )
@@ -10,6 +9,7 @@ import (
 const brakeDur = 10   //Duration, in milliseconds, of the braking time when stopping at a floor
 const doorOpenDur = 3 //Duration, in seconds, of the time the door stays open when arriving at a floor
 const Speed = 300     //The speed of the motor
+
 
 type (
 	Event int         // The event type
@@ -20,6 +20,12 @@ type FSM struct { // The state machine type
 	direction int   // Holds the direction of travel
 	noOrders  bool  // True if there are no orders in the order list in the orders module
 }
+
+const(
+	Up 	 = 1
+	Down = -1
+	Stop = 0
+)
 
 const ( // Events
 	OrderReached Event = iota
@@ -45,12 +51,12 @@ func InitElev() int {
 	} else {
 		if drivers.ElevGetFloorSensorSignal() != -1 { //Check if the elevator is at a floor
 		} else { //else, run downwards until one is found
-			drivers.ElevSetSpeed(int(order.Down) * Speed)
+			drivers.ElevSetSpeed(Down*Speed)
 			floor := drivers.ElevGetFloorSensorSignal()
 			for floor == -1 {
 				floor = drivers.ElevGetFloorSensorSignal()
 			}
-			drivers.ElevSetSpeed(int(order.Up) * Speed)
+			drivers.ElevSetSpeed(Up*Speed)
 			brake()
 		}
 		fmt.Printf("Initialized\n")
@@ -64,33 +70,27 @@ func brake() {
 }
 
 // Checks for events and runs the state machine when events occur
-func EventManager() {
+func EventManager(orderReachedEvent <-chan bool, newOrderEvent <-chan bool, newDirEvent <-chan int, noOrdersEvent <-chan bool, doorOpen chan<- bool) {
 	var fsm FSM                      // Make a state machine
 	fsm.state = fsm.idleState        // Set initial state to idle
 	fsm.noOrders = true              // We have no orders at the start
-	fsm.direction = int(orders.Down) // Set inital direction down (as our init runs downwards)
-
-	// Event channels
-	orderReachedEvent := make(chan bool)
-	newOrderEvent := make(chan bool)
-	switchDirEvent := make(chan orders.Direction)
-	noOrdersEvent := make(chan bool)
-	// Start Orderhandler in the orders module as a gorutine with the event channels as arguments to communicate
-	go orders.OrderHandler(orderReachedEvent, newOrderEvent, switchDirEvent, noOrdersEvent)
+	fsm.direction = Down // Set inital direction down (as our init runs downwards)
 	for {
 		select {
 		case <-brakeTimer: // Brake finished. Set speed to 0
-			drivers.ElevSetSpeed(int(orders.Stop))
+			drivers.ElevSetSpeed(Stop)
 		case <-newOrderEvent: // New order so noOrders must be set to false
 			fsm.noOrders = false
 			fsm.state(NewOrder)
-		case dir := <-switchDirEvent: // A direction change must happen, so direction is changed for the next time we set elevSetSpeed()
-			fsm.direction = int(dir) // Converting from type orders.Direction to int to simplify
+		case dir := <-newDirEvent: // A direction change must happen, so direction is changed for the next time we set elevSetSpeed()
+			fsm.direction = dir // Converting from type types.Direction to int to simplify
 			fsm.state(SwitchDirection)
 		case <-orderReachedEvent: // Reached a floor where there is an order
 			fsm.state(OrderReached)
+			doorOpen <- true
 		case <-doorTimer: // Door timer is finished and we can close the doors
 			fsm.state(TimerFinished)
+			doorOpen <- false
 		case fsm.noOrders = <-noOrdersEvent: // We now have no orders left. No orders i therefore set to true so we can go to Idle
 		}
 	}

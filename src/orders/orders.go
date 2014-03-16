@@ -1,7 +1,6 @@
 package orders
 
 import (
-	"../network"
 	"time"
 	"../types"	
 	"../drivers"
@@ -32,45 +31,46 @@ const SamplingTime		 = 1   // Milliseconds
 const Floors 			 = 4   // Number of floors
 const Buttons			 = 3   // Number of buttons
 
-func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, switchDirEvent chan<- Direction, noOrdersEvent chan<- bool) {
+func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, switchDirEvent chan<- int, noOrdersEvent chan<- bool, 
+					msgIn <-chan types.OrderMsg,  msgOut chan<- types.OrderMsg, netAliveChan <-chan bool, doorOpenChan <-chan bool) {
+					
 	var direction 		Direction 	// Keeps the last direction the elevator was heading. Can only be Up or down
 	var prevDirection   Direction	// Keeps the last direction the elevator was heading. Can be Up, Down or Stop
 	var prevFloor 		int      	// Holds the previous floor the elevator went past. 
 	var noOrders		bool		// True if we have no orders in locOrdMat
 	var netAlive 		bool		// True if the network is up and running
+	var doorOpen		bool
 	var locOrdMat [Floors][3]int 	// Holds the orders that the elevator has accepted and will carry out
 	var activeTenders map[types.OrderType] 	TenderType  // Holds all active tenders, the time they were started and what the tender value is
 	var lostTenders map[types.OrderType] 	time.Time	// Holds all lost tenders and the time they were started (lost)
 	
-	//---- Start Init of variables and network--------//
+	//---- Initiale values of variables --------//
 	direction 		=  Down
 	noOrders		=  true
 	netAlive		=  true
+	doorOpen		=  false
 	activeTenders 	=  make(map[types.OrderType] TenderType)
 	lostTenders 	=  make(map[types.OrderType] time.Time)
-	msgChan 		:= make(chan types.OrderMsg) // Channel used to send messages from the network module
-	netChan			:= make(chan bool)			 // Channel used to tell if the network module has shut downs
-	go network.ListenOnNetwork(msgChan, netChan)
-	//---- Init complete ------//
+
 	for {
 		select {
 		case <-time.After(time.Millisecond * SamplingTime): //Only check for events bellow every Sampling time [ms]
 			if newOrders, msgSlice := getOrders(&locOrdMat, activeTenders, lostTenders); newOrders {  // Check for new orders.
 				for _, msg := range msgSlice {  			// Go through all new orders and process them in msgHandler
-					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
+					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive, msgOut); newOrder{
 						newOrderEvent <-true  				// New order from an empty order matrix has occured
 						noOrders = false					// Must be set false as we now have an order in the order list
 					}
 				}
 			}
-			if matEmpty := isLocOrdMatEmpty(locOrdMat); matEmpty && !noOrders { // only launch the event once when we have no orders left
+			if matEmpty := isMatrixEmpty(locOrdMat); matEmpty && !noOrders { // only launch the event once when we have no orders left
 				noOrdersEvent <- true
 				noOrders = true  	// We now have no orders in our order list
 			}
-			if orderReached, del, delOrders := atOrder(locOrdMat, direction, &prevFloor); orderReached { // Launch event if we reach an order	
+			if orderReached, del, delOrders := checkIfAtOrder(locOrdMat, direction, &prevFloor); orderReached { // Launch event if we reach an order	
 				if del {							// If we have orders to delete, delete them
 					for _ , msg := range delOrders {
-						if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
+						if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive, msgOut); newOrder{
 						   newOrderEvent <-true  	// New order from an empty order matrix has occured
 						   noOrders = false			// Must be set false as we now have an order in the order list
 					   }
@@ -78,35 +78,38 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 				}
 				orderReachedEvent <- true
 			}
-			if currDir := getDir(direction, prevFloor, locOrdMat); currDir !=  prevDirection{   // If we get a new direction different from the previous
-				switchDirEvent <- currDir														// We launch the switch direction event and -
+			if currDir := getDir(direction, prevFloor, locOrdMat); currDir !=  prevDirection && !doorOpen{   // If we get a new direction different from the previous
+				switchDirEvent <- int(currDir)													// We launch the switch direction event and -
 				prevDirection = currDir															// update the previous direciton variable.
 				if currDir != Stop {															// Update the direction variable if it isn't Stop
 					direction = currDir
 				}
 			}
-			if tenderAction , tenderOrders := checkTenderMaps(activeTenders, lostTenders); tenderAction{ // If some times for the tenders on the tender lists have run out -
-				for _, msg := range tenderOrders {
-					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{ // we let msgHandler handle the messages/orders. Add them if they are from active tenders or start a new tender session over the network if they are from lost tenders
-						newOrderEvent <-true  	// New order from an empty order matrix has occured
-						noOrders = false		// Must be set false as we now have an order in the order list
-					}  
-				}															   
+			if tenderAction , tenderOrders := checkTenderMaps(activeTenders, lostTenders); tenderAction{ 
+				for _, msg := range tenderOrders { // If some times for the tenders on the tender lists have run out -
+					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive, msgOut); newOrder{ 											
+						newOrderEvent <-true  	  // we let msgHandler handle the messages/orders. Add them if they are from active tenders or 
+						noOrders = false		  //start a new tender session over the network if they are from lost tenders
+					}  							  // New order from an empty order matrix has occured
+				}								  // Must be set false as we now have an order in the order list							   
 			}
 			
-		case msg:= <-msgChan:  // Received message on the network
-			if newOrder := msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive); newOrder{
+		case msg:= <-msgIn:  // Received message on the network
+			if newOrder := msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive, msgOut); newOrder{
 				newOrderEvent <-true  // New order from an empty order matrix has occured
 				noOrders = false		// Must be set false as we now have an order in the order list
 			}
-		case netAlive = <-netChan:
+		case netAlive = <-netAliveChan:
 			fmt.Printf("Running without network connetion.\n")
 		}
+		case doorOpen = <-doorOpenChan:
 	}
 }
 
 //Handles orders both locally and over the network
-func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[types.OrderType] TenderType, lTen *map[types.OrderType] time.Time, prevFloor int, dir Direction, netAlive bool)(newOrder bool) {
+func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[types.OrderType] TenderType, lTen *map[types.OrderType] time.Time,
+				prevFloor int, dir Direction, netAlive bool, msgOutChan chan<- types.OrderMsg)(newOrder bool) {
+				
 	newOrder = false
 	if checkMsg(msg) {     // Check if message is valid
 		order := msg.Order
@@ -116,7 +119,7 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[
 				if (*locOrdMat)[floor][button] == 0 { // Check if we have an order there already
 					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1) 
 					if button == PanelButton {        		// If the order is from the inside panel we add the order directly	
-						if isLocOrdMatEmpty(*locOrdMat) {   // Launch new order event if the order list is empty
+						if isMatrixEmpty(*locOrdMat) {   // Launch new order event if the order list is empty
 							newOrder = true
 						}
 						(*locOrdMat)[floor][button]=1	
@@ -125,7 +128,7 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[
 						msg.TenderVal = cost(floor, button, *locOrdMat, prevFloor, dir) // start a tender session on the network. Lowest tender "wins" the order.
 						(*aTen)[order] = TenderType{time.Now(), msg.TenderVal}  	// Add tender to active tenders
 						if netAlive {													// Broadcast our tender only if the network is still runnnings
-							network.BroadcastOnNet(msg)  								
+							msgOutChan<-msg								
 						}
 					}
 				}			
@@ -136,8 +139,8 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[
 				if (*locOrdMat)[floor][button] == 1 { 	// If it is "our" order -
 					(*locOrdMat)[floor][button]=0	   	// we delete it and -
 					msg.Action = types.DeleteOrder		// and iff he network is still running we broadcast to the others to delete it aswell
-					if net alive{
-						network.BroadcastOnNet(msg)		
+					if netAlive && orders.Button != PanelButton{
+						msgOutChan<-msg		
 					}
 				}	
 			case types.Tender:
@@ -148,11 +151,12 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[
 						(*lTen)[order] = time.Now()	// and add it to lost tenders 
 					} 
 				} else {																// If we don't already have a tender at that order, 
-					if tenderVal := cost(floor, button, *locOrdMat, prevFloor, dir); tenderVal < msg.TenderVal {	// we calculate a tender for it and check if ours is better than there's
-						msg.TenderVal = tenderVal										// If our tender is better -
+					if tenderVal := cost(floor, button, *locOrdMat, prevFloor, dir); tenderVal < msg.TenderVal {	
+																					// we calculate a tender for it and check if ours is better than there's
+						msg.TenderVal = tenderVal									// If our tender is better -
 						(*aTen)[order] = TenderType{time.Now(), tenderVal}			// we add it to active tenders
-						if netAlive {													// If he network is still running
-							network.BroadcastOnNet(msg)  								//we send it out on the network
+						if netAlive {												// If he network is still running
+							msgOutChan<-msg  							//we send it out on the network
 						}
 					} else {
 						(*lTen)[order] = time.Now() 			// If our tenders is worse, we add it to lost tenders
@@ -163,7 +167,7 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[
 				delete(*lTen , order)
 				if (*locOrdMat)[floor][button]  == 0 { // Make sure we already don't have that order (should not happen)
 					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)  // Set order lamp	
-					if isLocOrdMatEmpty(*locOrdMat) { // Launch new order event if the order list is empty
+					if isMatrixEmpty(*locOrdMat) { // Launch new order event if the order list is empty
 						newOrder = true
 						fmt.Printf("New order \n")
 					}
@@ -198,7 +202,7 @@ func checkTenderMaps(aTen map[types.OrderType] TenderType, lTen map[types.OrderT
 	return
 }
 // Check if the elevator should stop at a floor it passes
-func atOrder(locOrdMat[Floors][Buttons] int, prevDir Direction, prevFloor *int) (orderReached bool, del bool, delOrders []types.OrderMsg) {
+func checkIfAtOrder(locOrdMat[Floors][Buttons] int, prevDir Direction, prevFloor *int) (orderReached bool, del bool, delOrders []types.OrderMsg) {
 	floor := drivers.ElevGetFloorSensorSignal()
 	orderReached = false
 	del = false
@@ -229,8 +233,8 @@ func atOrder(locOrdMat[Floors][Buttons] int, prevDir Direction, prevFloor *int) 
 			del = true			// Mark that we have orders to delete
 			orderReached = true
 		} 
-		if ordersAtCur[currDir+int(prevDir)] && !ordersInDir[currDir]{ //If we have no further orders in the current direction and an order in the opposite. Stop here and delete the order
-			order := types.OrderType{currDir+int(prevDir), *prevFloor}
+		if ordersAtCur[currDir+int(prevDir)] && !ordersInDir[currDir]{ //If we have no further orders in the current direction and an order in the opposite.
+			order := types.OrderType{currDir+int(prevDir), *prevFloor} //  Stop here and delete the order
 			msg.Order = order
 			delOrders = append(delOrders, msg)
 			del = true			// Mark that we have orders to delete
@@ -254,7 +258,7 @@ func checkMsg(msg types.OrderMsg) bool {
 	return false
 }
 // Check if the locOrdMat is empty.
-func isLocOrdMatEmpty(locOrdMat [Floors][Buttons] int) bool {
+func isMatrixEmpty(locOrdMat [Floors][Buttons] int) bool {
 	for i := range locOrdMat {
 		for _, order := range locOrdMat[i] {
 			if order == 1 {
@@ -288,7 +292,8 @@ func getOrders(locOrdMat *[Floors][Buttons] int, aTen map[types.OrderType] Tende
 	msg.Action = types.NewOrder
 	for i := range *locOrdMat {
 		for j := range (*locOrdMat)[i] {
-			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check the Down button at the groud floor and the Up button at the top floor, as they don't exist.
+			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that we don't check 
+																							  // a button that doesn't exist
 				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 { // If a button is pushed and we dont have an order there already
 					order := types.OrderType{j, i}
 					_, lostOk   := lTen[order]; 
@@ -306,7 +311,7 @@ func getOrders(locOrdMat *[Floors][Buttons] int, aTen map[types.OrderType] Tende
 }
 // Get what direction to travel
 func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) Direction {
-	if isLocOrdMatEmpty(locOrdMat){   	// If there are no orders, we should just stop
+	if isMatrixEmpty(locOrdMat){   	// If there are no orders, we should just stop
 		return Stop						
 	} else if prevFloor == Floors-1 {	// If we are at the top, the only way to go is down
 		return Down
@@ -321,7 +326,8 @@ func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) 
 		case Down:
 			currDir = DownButton
 	}
-	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the panel or from outside in the same direction as travel
+	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the 
+												// panel or from outside in the same direction as travel
 	   if drivers.ElevGetFloorSensorSignal() != -1{
 		   return Stop
 		 } else {
