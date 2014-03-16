@@ -1,6 +1,6 @@
 package fsm
 /*
-Contains the event mangager and the state machine for the elevator. The State machine can go into 3 states: idle, running and atFloor, which functions should be
+Contains the event mangager and the state machine for the elevator. The State machine can go into 3 states: idle, running and atFloor, whose functions should be
 self explainatory.
 */
 import (
@@ -73,8 +73,10 @@ func brake() {
 }
 
 // Checks for events and runs the state machine when events occur
-func EventManager(orderReachedEvent <-chan bool, newOrderEvent <-chan bool, newDirEvent <-chan int, noOrdersEvent <-chan bool, doorOpen chan<- bool) {
+func EventManager(orderReachedEvent <-chan bool, newOrderEvent <-chan bool, newDirEvent <-chan int, noOrdersEvent <-chan bool, doorOpenChan chan<- bool) {
 	var fsm FSM                      // Make a state machine
+	doorOpen := false
+	prevDoorOpen:= false
 	fsm.state = fsm.idleState        // Set initial state to idle
 	fsm.noOrders = true              // We have no orders at the start
 	fsm.direction = Down // Set inital direction down (as our init runs downwards)
@@ -90,11 +92,20 @@ func EventManager(orderReachedEvent <-chan bool, newOrderEvent <-chan bool, newD
 			fsm.state(SwitchDirection)
 		case <-orderReachedEvent: // Reached a floor where there is an order
 			fsm.state(OrderReached)
-			doorOpen <- true
+			if !doorOpenVar{
+				doorOpen= true
+			}
 		case <-doorTimer: // Door timer is finished and we can close the doors
 			fsm.state(TimerFinished)
-			doorOpen <- false
+			if doorOpen{
+				doorOpen= false
+			}
 		case fsm.noOrders = <-noOrdersEvent: // We now have no orders left. No orders i therefore set to true so we can go to Idle
+		case <-time.After(time.Millisecond*10):
+				if doorOpen != prevDoorOpen{
+					doorOpenChan <- doorOpen
+					prevDoorOpen = doorOpen
+				}
 		}
 	}
 }

@@ -52,6 +52,7 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 
 	for {
 		select {
+		case doorOpen = <-doorOpenChan:
 		case <-time.After(time.Millisecond * SamplingTime): //Only check for events bellow every Sampling time [ms]
 			if newOrders, msgSlice := getOrders(&locOrdMat, activeTenders, lostTenders); newOrders {  // Check for new orders.
 				for _, msg := range msgSlice {		// Go through all new orders and process them in msgHandler
@@ -74,12 +75,13 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 					   }
 					}
 				}
+				doorOpen = true
 				orderReachedEvent <- true
 			}
 			if currDir := getDir(direction, prevFloor, locOrdMat); currDir !=  prevDirection && !doorOpen{   // If we get a new direction different from the previous
 				switchDirEvent <- int(currDir)													// We launch the switch direction event and -
 				prevDirection = currDir															// update the previous direciton variable.
-				if currDir != Stop {															// Update the direction variable if it isn't Stop
+				if currDir != Stop  {															// Update the direction variable if it isn't Stop
 					direction = currDir
 				}
 			}
@@ -99,7 +101,6 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 		case netAlive = <-netAliveChan:
 			fmt.Printf("Running without network connetion.\n")
 		}
-		case doorOpen = <-doorOpenChan:
 	}
 }
 
@@ -135,7 +136,7 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[
 				if (*locOrdMat)[floor][button] == 1 {	// If it is "our" order -
 					(*locOrdMat)[floor][button]=0	// we delete it and -
 					msg.Action = types.DeleteOrder	// and iff he network is still running we broadcast to the others to delete it aswell
-					if netAlive && orders.Button != PanelButton{
+					if netAlive && order.Button != PanelButton{
 						msgOutChan<-msg
 					}
 				}
@@ -165,7 +166,6 @@ func msgHandler(msg types.OrderMsg, locOrdMat *[Floors][Buttons] int, aTen *map[
 					drivers.ElevSetButtonLamp(drivers.TagElevLampType(button), floor, 1)  // Set order lamp	
 					if isMatrixEmpty(*locOrdMat) { // Launch new order event if the order list is empty
 						newOrder = true
-						fmt.Printf("New order \n")
 					}
 					(*locOrdMat)[floor][button] = 1	
 				}
@@ -339,7 +339,6 @@ func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) 
 		 }
 	} else if ordersInDir[currDir+int(direction)] { //Go in opposit direction if there is an order there 
 		direction = -1 * direction
-		fmt.Printf("dir: %d \n", currDir+int(direction))
 		return direction
 	}
 	return direction	// Stay put if the logic above fails (Yeah, right...)
