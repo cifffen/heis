@@ -1,28 +1,31 @@
 package fsm
-
+/*
+Contains the event mangager and the state machine for the elevator. The State machine can go into 3 states: idle, running and atFloor, whose functions should be
+self explainatory.
+*/
 import (
 	"../drivers"
 	"fmt"
 	"time"
 )
 
-const brakeDur = 10   //Duration, in milliseconds, of the braking time when stopping at a floor
-const doorOpenDur = 3 //Duration, in seconds, of the time the door stays open when arriving at a floor
-const Speed = 300     //The speed of the motor
+const brakeDur	  = 10   //Duration, in milliseconds, of the braking time when stopping at a floor
+const doorOpenDur = 3    //Duration, in seconds, of the time the door stays open when arriving at a floor
+const Speed       = 300  //The speed of the motor
 
 
 type (
 	Event int         // The event type
 	State func(Event) // A state is a function that takes in an event and acts based on that event
 )
-type FSM struct { // The state machine type
+type FSM struct {	// The state machine type
 	state     State // State holds the current state
 	direction int   // Holds the direction of travel
 	noOrders  bool  // True if there are no orders in the order list in the orders module
 }
 
 const(
-	Up 	 = 1
+	Up   = 1
 	Down = -1
 	Stop = 0
 )
@@ -37,7 +40,7 @@ const ( // Events
 //-----State diagram-----------------------------//
 // States: Idle, Running, AtFloor
 // Idle 	if NewOrder -> Running
-// Running	if AtOrder	-> 	AtFloor
+// Running	if AtOrder  -> 	AtFloor
 // AtFloor	if DoorTimer ? !noOrders -> Running
 // AtFloor	if DoorTimer ? noOrders  -> Idle
 //-----------------------------------------------//

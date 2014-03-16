@@ -31,14 +31,14 @@ func main(){
 	newOrderEvent 		:= make(chan bool)
 	newDirEvent 		:= make(chan int)
 	noOrdersEvent 		:= make(chan bool)
-	doorOpen			:= make(chan bool)
+	doorOpen		:= make(chan bool)
 	// Network  and message channels
 	msgInChan 		:= make(chan types.OrderMsg) // Channel used to send messages from the network module
 	msgOutChan 		:= make(chan types.OrderMsg) // Channel used to send messages to the network module
-	netAliveChan	:= make(chan bool)			 // Channel used to tell if the network module has shut downs
+	netAliveChan		:= make(chan bool)	     // Channel used to tell if the network module has shut downs
 	
 	go orders.OrderHandler(orderReachedEvent, newOrderEvent, newDirEvent, noOrdersEvent, msgInChan, msgOutChan, netAliveChan, doorOpen)
 	go network.ListenOnNetwork(msgInChan, netAliveChan)
-    go network.BroadcastOnNet(msgOutChan)
+	go network.BroadcastOnNet(msgOutChan)
 	fsm.EventManager(orderReachedEvent, newOrderEvent, newDirEvent, noOrdersEvent, doorOpen) 
 }

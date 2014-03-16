@@ -269,11 +269,11 @@ func checkForOrders(locOrdMat[Floors][Buttons] int, prevFloor int)(ordersAtCurFl
 	for i := range locOrdMat {
 		for j := range locOrdMat[i] {
 			if locOrdMat[i][j] == 1 {
-				if i == prevFloor {		//check for orders at current floor
+				if i == prevFloor { 		//check for orders at current floor
 					ordersAtCurFloor[j] = true
-				} else if i > prevFloor {	// check for orders upwards
+				} else if i > prevFloor { 	// check for orders upwards
 					ordersInDir[UpButton] = true
-				} else if i < prevFloor {	// check for orders downwards
+				} else if i < prevFloor { 	// check for orders downwards
 					ordersInDir[DownButton] = true
 				}
 			}
@@ -292,12 +292,12 @@ func getOrders(locOrdMat *[Floors][Buttons] int, aTen map[types.OrderType] Tende
 																							  // a button that doesn't exist
 				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 { // If a button is pushed and we dont have an order there already
 					order := types.OrderType{j, i}
-					_, lostOk   := lTen[order];
-					_, activeOk := aTen[order];
-					if !lostOk && !activeOk{		//Check that those order are not already active on the network, either as an active- or lost tender
+					_, lostOk   := lTen[order]; 
+					_, activeOk := aTen[order]; 
+					if !lostOk && !activeOk{ 		//Check that those order are not already active on the network, either as an active- or lost tender
 						newOrders = true
 						msg.Order = order
-						orders = append(orders, msg)
+						orders = append(orders, msg) 
 					}
 				}
 			}
@@ -307,11 +307,11 @@ func getOrders(locOrdMat *[Floors][Buttons] int, aTen map[types.OrderType] Tende
 }
 // Get what direction to travel
 func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) Direction {
-	if isMatrixEmpty(locOrdMat){	// If there are no orders, we should just stop
+	if isMatrixEmpty(locOrdMat){ 	// If there are no orders, we should just stop
 		return Stop
 	} else if prevFloor == Floors-1 {	// If we are at the top, the only way to go is down
 		return Down
-	} else if prevFloor == 0{			// if you're at the bottom you can only look up.
+	} else if prevFloor == 0{ 			// if you're at the bottom you can only look up.
 		return Up
 	}
 	ordersAtCur, ordersInDir := checkForOrders(locOrdMat, prevFloor)
@@ -342,6 +342,6 @@ func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) 
 		fmt.Printf("dir: %d \n", currDir+int(direction))
 		return direction
 	}
-	return direction	// Stay put if the logic above fails (Yeah, right...)
+	return direction 	// Stay put if the logic above fails (Yeah, right...)
 }
 
