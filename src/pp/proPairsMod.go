@@ -105,7 +105,7 @@ func ProcessPairs(args []string) int {
 				case <-numberChan:
 					ticker.Stop()
 					ticker = time.NewTicker(time.Millisecond*HeartBeat)
-				case <-ticker.C:  // If we don't here from the master in a given time
+				case <-ticker.C:  // If we don't hear from the master in a given time
 					sock.Close()  // We close the socket so the next slave can use it
 					time.Sleep(time.Millisecond*200) // Wait from 200 ms to be sure the socket is closed before we start a slave
 					num++							 // Keep count of number of reboots
@@ -120,6 +120,6 @@ func ProcessPairs(args []string) int {
 			}
 		}
 	} 
-	fmt.Printf("Error: Wrong input. Running without processparis.")
+	fmt.Printf("Error: Wrong input. Running without processpairs.")
 	return 1
 }
