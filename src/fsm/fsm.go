@@ -100,7 +100,7 @@ func EventManager(orderReachedEvent <-chan bool, newOrderEvent <-chan bool, newD
 			if doorOpen{
 				doorOpen= false
 			}
-		case fsm.noOrders = <-noOrdersEvent: // We now have no orders left. No orders i therefore set to true so we can go to Idle
+		case fsm.noOrders = <-noOrdersEvent: // We now have no orders left. No orders is therefore set to true so we can go to Idle
 		case <-time.After(time.Millisecond*10):
 				if doorOpen != prevDoorOpen{
 					doorOpenChan <- doorOpen

@@ -3,7 +3,8 @@ package network
 Holds the functions used for communication on the network. 
 Interface:
 func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) - Broadcasts a message on the network
-func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) - Listens for messages on the network and send them over the msgChan. 
+func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) 
+- Listens for messages on the network and send them over the msgChan. 
 */
 
 import (
@@ -32,27 +33,27 @@ func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) {
 	timeSinceErr := time.Now()
 	timeSinceErr.Add(timeCheck)
 	for{
-		if time.Since(timeSinceErr) >= timeCheck{
-			select {
+		select {
 			case msg := <-msgOutChan:
-				addr, err := net.ResolveUDPAddr("udp", BroadCastIp+NetworkPort)
-				if err != nil {
-					log.Printf("Error: %v",err)
-				}
-				buf, err := json.Marshal(msg)
-				if err != nil {
-					log.Printf("Error: %v",err)
-				}
-				for i := 0; i < NumbOfBroadcasts; i++ {
-					_, err = sock.WriteTo(buf, addr)
+				if time.Since(timeSinceErr) >= timeCheck{
+					addr, err := net.ResolveUDPAddr("udp", BroadCastIp+NetworkPort)
 					if err != nil {
 						log.Printf("Error: %v",err)
-						fmt.Printf("Wont send messages on network for %d time. \n", timeCheck)
-						timeSinceErr = time.Now()
-						break
+					}
+					buf, err := json.Marshal(msg)
+					if err != nil {
+						log.Printf("Error: %v",err)
+					}
+					for i := 0; i < NumbOfBroadcasts; i++ {
+						_, err = sock.WriteTo(buf, addr)
+						if err != nil {
+							log.Printf("Error: %v",err)
+							fmt.Printf("Wont send messages on network for %d time. \n", timeCheck)
+							timeSinceErr = time.Now()
+							break
+						}
 					}
 				}
-			}
 		}
 	}
 }

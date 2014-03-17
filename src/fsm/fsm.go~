@@ -92,7 +92,7 @@ func EventManager(orderReachedEvent <-chan bool, newOrderEvent <-chan bool, newD
 			fsm.state(SwitchDirection)
 		case <-orderReachedEvent: // Reached a floor where there is an order
 			fsm.state(OrderReached)
-			if !doorOpenVar{
+			if !doorOpen{
 				doorOpen= true
 			}
 		case <-doorTimer: // Door timer is finished and we can close the doors
