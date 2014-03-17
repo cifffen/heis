@@ -29,7 +29,7 @@ const NonJsonInt  = 60	// Number of seconds in the intervall where we check for 
 
 //Broadcast message on the local network at the given port
 func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) {
-	timeCheck := time.Second*30 // We will only try to send a new message after 30 seconds if we had an error sending 
+	timeCheck := time.Second*15 // We will only try to send a new message after 30 seconds if we had an error sending 
 	timeSinceErr := time.Now()
 	timeSinceErr.Add(timeCheck)
 	for{

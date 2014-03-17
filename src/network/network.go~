@@ -3,7 +3,8 @@ package network
 Holds the functions used for communication on the network. 
 Interface:
 func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) - Broadcasts a message on the network
-func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) - Listens for messages on the network and send them over the msgChan. 
+func ListenOnNetwork(msgChan chan<- types.OrderMsg, networkAlive chan<- bool) 
+- Listens for messages on the network and send them over the msgChan. 
 */
 
 import (
