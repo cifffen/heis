@@ -31,8 +31,8 @@ const SamplingTime		 = 1   // Milliseconds
 const Floors			 = 4   // Number of floors
 const Buttons			 = 3   // Number of buttons
 
-func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, switchDirEvent chan<- int, noOrdersEvent chan<- bool, 
-					msgIn <-chan types.OrderMsg,  msgOut chan<- types.OrderMsg, netAliveChan <-chan bool, doorOpenChan <-chan bool) {
+func OrderHandler(orderReachedEvent chan<- bool,newOrderEvent chan<- bool,switchDirEvent chan<- int,noOrdersEvent chan<- bool,
+		msgIn <-chan types.OrderMsg,msgOut chan<- types.OrderMsg,netAliveChan <-chan bool,doorOpenChan <-chan bool) {
 	var direction		Direction	// Keeps the last direction the elevator was heading. Can only be Up or down
 	var prevDirection   Direction		// Keeps the last direction the elevator was heading. Can be Up, Down or Stop
 	var prevFloor		int		// Holds the previous floor the elevator went past. 
@@ -40,8 +40,8 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 	var netAlive		bool		// True if the network is up and running
 	var doorOpen		bool
 	var locOrdMat [Floors][3]int	// Holds the orders that the elevator has accepted and will carry out
-	var activeTenders map[types.OrderType]	TenderType  // Holds all active tenders, the time they were started and what the tender value is
-	var lostTenders map[types.OrderType]	time.Time	// Holds all lost tenders and the time they were started (lost)
+	var activeTenders map[types.OrderType]	TenderType  // Holds all active tenders
+	var lostTenders map[types.OrderType]	time.Time   // Holds all lost tenders and the time they were started (lost)
 	//---- Initiale values of variables --------//
 	direction		=  Down
 	noOrders		=  true
@@ -56,7 +56,8 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 		case <-time.After(time.Millisecond * SamplingTime): //Only check for events bellow every Sampling time [ms]
 			if newOrders, msgSlice := getOrders(&locOrdMat, activeTenders, lostTenders); newOrders {  // Check for new orders.
 				for _, msg := range msgSlice {		// Go through all new orders and process them in msgHandler
-					if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive, msgOut); newOrder{
+					if newOrder:= msgHandler(msg,&locOrdMat,&activeTenders,&lostTenders,prevFloor,direction,netAlive,msgOut);
+					newOrder{
 						newOrderEvent <-true	// New order from an empty order matrix has occured
 						noOrders = false	// Must be set false as we now have an order in the order list
 					}
@@ -66,10 +67,11 @@ func OrderHandler(orderReachedEvent chan<- bool, newOrderEvent chan<- bool, swit
 				noOrdersEvent <- true
 				noOrders = true		// We now have no orders in our order list
 			}
-			if orderReached, del, delOrders := checkIfAtOrder(locOrdMat, direction, &prevFloor); orderReached { // Launch event if we reach an order	
-				if del {							// If we have orders to delete, delete them
-					for _ , msg := range delOrders {
-						if newOrder:= msgHandler(msg, &locOrdMat, &activeTenders, &lostTenders, prevFloor, direction, netAlive, msgOut); newOrder{
+			if orderReached, del, delOrders := checkIfAtOrder(locOrdMat, direction, &prevFloor); orderReached {
+				if del {	                         // Launch event if we reach an order
+					for _ , msg := range delOrders { // If we have orders to delete, delete them
+						if newOrder:= msgHandler(msg,&locOrdMat,&activeTenders,&lostTenders,prevFloor,direction,netAlive,msgOut);
+						newOrder{
 						   newOrderEvent <-true		// New order from an empty order matrix has occured
 						   noOrders = false		// Must be set false as we now have an order in the order list
 					   }
