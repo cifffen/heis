@@ -27,7 +27,8 @@ func StartSlave(number int)() { // Start a new program with the argument Slave s
 	}	
 	fmt.Printf("Slave number %d started\n", number)	
 }	
-// Listen to the heartbeat from the master. If an error occurs here we have to shut down to prevent multiple programs runnings at once.
+// Listen to the heartbeat from the master. If an error occurs here we have to -
+// shut down to prevent multiple programs runnings at once.
 func UdpListenToMaster(number chan<- int, sock **net.UDPConn)() {	
 	addr, err := net.ResolveUDPAddr("udp", "localhost"+ProPairsPort)
 	if err != nil {							
@@ -58,7 +59,8 @@ func UdpListenToMaster(number chan<- int, sock **net.UDPConn)() {
 	}
 }
 
-// Broadcast heartbeat so the slave on localhost. We shut down the elevator should an error occur here to prevent mulitple programs running at once.
+// Broadcast heartbeat so the slave on localhost. We shut down the elevator -
+// should an error occur here to prevent mulitple programs running at once.
 func UdpHeartBeat(number int)(){
 	for {
 		select {

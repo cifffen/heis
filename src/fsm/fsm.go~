@@ -1,7 +1,7 @@
 package fsm
 /*
-Contains the event mangager and the state machine for the elevator. The State machine can go into 3 states: idle, running and atFloor, whose functions should be
-self explainatory.
+Contains the event mangager and the state machine for the elevator. The State machine can go into 3 states: idle, 
+running and atFloor, whose functions should be self explainatory.
 */
 import (
 	"../drivers"
@@ -100,7 +100,7 @@ func EventManager(orderReachedEvent <-chan bool, newOrderEvent <-chan bool, newD
 			if doorOpen{
 				doorOpen= false
 			}
-		case fsm.noOrders = <-noOrdersEvent: // We now have no orders left. No orders i therefore set to true so we can go to Idle
+		case fsm.noOrders = <-noOrdersEvent: // We now have no orders left. No orders is therefore set to true so we can go to Idle
 		case <-time.After(time.Millisecond*10):
 				if doorOpen != prevDoorOpen{
 					doorOpenChan <- doorOpen
@@ -124,8 +124,8 @@ func (fsm *FSM) runningState(event Event) {
 	switch event {
 	case SwitchDirection: // If there is a change in direction we set the direction again
 		drivers.ElevSetSpeed(fsm.direction * Speed)
-	case OrderReached: // When we reach an order, we switch the direction to brake, start the door timer and lights and go to at floor state
-		drivers.ElevSetSpeed(-1 * fsm.direction * Speed)
+	case OrderReached: // When we reach an order, we switch the direction to brake, start the door timer and -
+		drivers.ElevSetSpeed(-1 * fsm.direction * Speed) // lights and go to at floor state
 		brake()
 		doorTimer = time.After(time.Second * doorOpenDur)
 		drivers.ElevSetDoorOpenLamp(1)
