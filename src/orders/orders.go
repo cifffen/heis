@@ -291,7 +291,11 @@ func checkForOrders(locOrdMat[Floors][Buttons] int, prevFloor int)(ordersAtCurFl
 // Check for orders
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] TenderType,lTen map[types.OrderType] time.Time)(newOrders bool,orders []types.OrderMsg){
+=======
+func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] TenderType,lTen map[types.OrderType] time.Time)			(newOrders bool, orders []types.OrderMsg ) {
+>>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 =======
 func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] TenderType,lTen map[types.OrderType] time.Time)			(newOrders bool, orders []types.OrderMsg ) {
 >>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
@@ -305,6 +309,7 @@ func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] Tender
 		for j := range (*locOrdMat)[i] {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 			if (i!=0&&i!=Floors-1)||(i==0&&j!=1)||(i==Floors-1&&j!=0) { // Statement that makes sure that we don't check
 										    // a button that doesn't exist
 				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 { // If a button is pushed and 
@@ -316,6 +321,8 @@ func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] Tender
 =======
 =======
 >>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
+=======
+>>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that
 				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 {  	  //  we don't check a button 
 					order := types.OrderType{j, i}									          // that doesn't  exist.   
@@ -324,6 +331,9 @@ func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] Tender
 					if !lostOk && !activeOk{		// Check that those order are not already -
 						newOrders = true			// active on the network, either as an active- or lost tender
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
+=======
 >>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 =======
 >>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9

@@ -7,6 +7,7 @@ import (
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const floorValue     = 3	//Time to travel from one floor to the next
 const waitValue      = 3	//Time spent for each stop
 const directionValue = 20	//Extra cost if the order is in a conflicting direction
@@ -14,11 +15,16 @@ const twoDirSameFloorValue = 6  //Extra cost if the floor already has an order o
 =======
 =======
 >>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
+=======
+>>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 const floorValue 	 = 4 	//Time to travel from one floor to the next
 const waitValue      = 3 	//Time spent for each stop
 const directionValue = 20 	//Extra cost if the order is in a conflicting direction
 const twoDirSameFloorValue = 7 //Extra cost if the floor already has an order on the floor, in the opposite direction
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
+=======
 >>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 =======
 >>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
