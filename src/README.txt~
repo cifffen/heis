@@ -1,0 +1,3 @@
+Elevator project for group w11 in TTK4145. Authors: Lars Gustavsen og Christian Fredrik Saetre.
+
+To run the program change directory to main and run the command "go build main.go && ./main" and the program should start up.

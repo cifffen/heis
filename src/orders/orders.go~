@@ -289,40 +289,12 @@ func checkForOrders(locOrdMat[Floors][Buttons] int, prevFloor int)(ordersAtCurFl
 	return
 }
 // Check for orders
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] TenderType,lTen map[types.OrderType] time.Time)(newOrders bool,orders []types.OrderMsg){
-=======
 func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] TenderType,lTen map[types.OrderType] time.Time)			(newOrders bool, orders []types.OrderMsg ) {
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
-=======
-func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] TenderType,lTen map[types.OrderType] time.Time)			(newOrders bool, orders []types.OrderMsg ) {
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
-=======
-func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] TenderType,lTen map[types.OrderType] time.Time)			(newOrders bool, orders []types.OrderMsg ) {
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 	newOrders = false
 	var msg types.OrderMsg
 	msg.Action = types.NewOrder
 	for i := range *locOrdMat {
 		for j := range (*locOrdMat)[i] {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-			if (i!=0&&i!=Floors-1)||(i==0&&j!=1)||(i==Floors-1&&j!=0) { // Statement that makes sure that we don't check
-										    // a button that doesn't exist
-				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 { // If a button is pushed and 
-					order := types.OrderType{j, i}                                 //we dont have an order there already
-					_, lostOk   := lTen[order];
-					_, activeOk := aTen[order];
-					if !lostOk && !activeOk{ //Check that those order are not already active on the network, 
-						newOrders = true //either as an active- or lost tender
-=======
-=======
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
-=======
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 			if (i != 0 && i != Floors-1) || (i == 0 && j != 1) || (i == Floors-1 && j != 0) { // Statement that makes sure that
 				if drivers.ElevGetButtonSignal(j, i) == 1 && (*locOrdMat)[i][j] == 0 {  	  //  we don't check a button 
 					order := types.OrderType{j, i}									          // that doesn't  exist.   
@@ -330,13 +302,6 @@ func getOrders(locOrdMat *[Floors][Buttons] int,aTen map[types.OrderType] Tender
 					_, activeOk := aTen[order];												  
 					if !lostOk && !activeOk{		// Check that those order are not already 
 						newOrders = true			// active on the network, either as an active- or lost tender
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
-=======
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
-=======
->>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 						msg.Order = order
 						orders = append(orders, msg)
 					}
@@ -363,8 +328,9 @@ func getDir(direction Direction, prevFloor int, locOrdMat[Floors][Buttons] int) 
 		case Down:
 			currDir = DownButton
 	}
-	if ordersAtCur[currDir] || ordersAtCur[2] {     //Just stay put if there is an order at current floor from the 
-	   if drivers.ElevGetFloorSensorSignal() != -1{ // panel or from outside in the same direction as travel
+	if ordersAtCur[currDir] || ordersAtCur[2] { //Just stay put if there is an order at current floor from the 
+												// panel or from outside in the same direction as travel
+	   if drivers.ElevGetFloorSensorSignal() != -1{
 		   return Stop
 		 } else {
 		    return direction
