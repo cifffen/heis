@@ -33,7 +33,7 @@ func main(){
 	// Network  and message channels
 	msgInChan 		:= make(chan types.OrderMsg) // Channel used to send messages from the network module
 	msgOutChan 		:= make(chan types.OrderMsg) // Channel used to send messages to the network module
-	netAliveChan		:= make(chan bool)	     // Channel used to tell if the network module has shut downs
+	netAliveChan	:= make(chan bool)	          // Channel used to tell if the network module has shut downs
 	go orders.OrderHandler(orderReachedEvent,newOrderEvent,newDirEvent,noOrdersEvent,msgInChan,msgOutChan,netAliveChan,doorOpen)
 	go network.ListenOnNetwork(msgInChan, netAliveChan)
 	go network.BroadcastOnNet(msgOutChan)

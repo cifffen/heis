@@ -48,7 +48,7 @@ func BroadcastOnNet(msgOutChan <-chan types.OrderMsg) {
 						_, err = sock.WriteTo(buf, addr)
 						if err != nil {
 							log.Printf("Error: %v",err)
-							fmt.Printf("Wont send messages on network for %d time. \n", timeCheck)
+							fmt.Printf("Wont send messages on network for %d s. \n", timeCheck/time.Second)
 							timeSinceErr = time.Now()
 							break
 						}

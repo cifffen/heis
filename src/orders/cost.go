@@ -5,23 +5,28 @@ import (
       "math"
 )
 
+<<<<<<< HEAD
 const floorValue     = 3	//Time to travel from one floor to the next
 const waitValue      = 3	//Time spent for each stop
 const directionValue = 20	//Extra cost if the order is in a conflicting direction
 const twoDirSameFloorValue = 6  //Extra cost if the floor already has an order on the floor, in the opposite direction
+=======
+const floorValue 	 = 4 	//Time to travel from one floor to the next
+const waitValue      = 3 	//Time spent for each stop
+const directionValue = 20 	//Extra cost if the order is in a conflicting direction
+const twoDirSameFloorValue = 7 //Extra cost if the floor already has an order on the floor, in the opposite direction
+>>>>>>> 11c5beaff559ac0a85a779db80111ceec71bbbc9
 
 //Calculates a cost for orders recieved from outside elevator
 func cost(orderFloor int, orderType int, locOrdMat [Floors][Buttons] int, prevFloor int, direction Direction) (cost int) {
 	if isMatrixEmpty(locOrdMat){ //If the elevator is not running the only concern is the distance from the order
 		cost = getTravelCost(orderFloor, prevFloor)
-        fmt.Printf("Cost: %d \n", cost)
 		return
 	} else{
 		cost = getTravelCost(orderFloor, prevFloor)
 		cost += getWaitCost(orderFloor, orderType, locOrdMat, prevFloor, direction)
 		cost += getDirectionCost(orderFloor, orderType, direction, prevFloor, locOrdMat)
         cost += getTwoDirSameFloorCost(orderFloor, orderType, locOrdMat)
-        fmt.Printf("Cost: %d \n", cost)
 		return
 	}
 }
@@ -60,8 +65,8 @@ func getDirectionCost(orderFloor int, orderType int, direction Direction, prevFl
 	        directionCost=directionValue                 //we'll consider down as current direction.
 		    return
 		}
-		if((orderType == 0 || (orderType == 1 && orderFloor == Floors-1)) && orderFloor > prevFloor){ //End floors are treated as current direction.
-			directionCost = 0
+		if((orderType == 0 || (orderType == 1 && orderFloor == Floors-1)) && orderFloor > prevFloor){ 
+			directionCost = 0                           // End floors are treated as current direction.
 			return
 		}else{
 			directionCost = directionValue
@@ -72,15 +77,15 @@ func getDirectionCost(orderFloor int, orderType int, direction Direction, prevFl
 	        directionCost=directionValue				 //we'll consider up as current direction.
 		    return
 		}
-		if((orderType == 1 || (orderType == 0 && orderFloor == 0)) && orderFloor < prevFloor){ //End floors are treated as current direction.
-			directionCost = 0
+		if((orderType == 1 || (orderType == 0 && orderFloor == 0)) && orderFloor < prevFloor){ // End floors are treated 
+			directionCost = 0																   // as current direction.
 			return
 		}else{
 			directionCost = directionValue
 	return
       }
    }
-    fmt.Printf("Failed to get directionCost \n")
+    fmt.Printf("Error: Failed to get directionCost \n")
 	directionCost = 0
 	return
 }
