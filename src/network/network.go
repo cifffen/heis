@@ -77,7 +77,7 @@ func ListenOnNetwork(msgInChan chan<- types.OrderMsg, networkAlive chan<- bool) 
 		return
 	}
 	sock, err = net.ListenUDP("udp", addr)
-	if err != nil {  		     // If we have an error here we can't listen on the network, so we tell the order
+	if err != nil {		     // If we have an error here we can't listen on the network, so we tell the order
 		log.Printf("Error: %v", err) //  module that we are shutting down before we do.
 		networkAlive <- false
 		return
@@ -90,14 +90,14 @@ func ListenOnNetwork(msgInChan chan<- types.OrderMsg, networkAlive chan<- bool) 
 	}
 	fmt.Println("Listnening on port", addr)
 	var msg types.OrderMsg		 // Message variable to hold the received messages
-	nonJson := 0 			 // Keeps tracks of the number of received messages that wasn't JSON objects
-	intTime := time.Now()  		 // Start of time intervall for maximum amount of non-JSON object received
+	nonJson := 0			 // Keeps tracks of the number of received messages that wasn't JSON objects
+	intTime := time.Now()		 // Start of time intervall for maximum amount of non-JSON object received
 	buf := make([]byte, 1024)
 	for {
 		rlen, addr, err := sock.ReadFromUDP(buf)
 		if err != nil{
 			log.Printf("Error: %v", err)
-		} else if addr != sAddr { 	// Don't handle if it's from the computer
+		} else if addr != sAddr {	// Don't handle if it's from the computer
 			err = json.Unmarshal(buf[0:rlen], &msg)
 			if err != nil {
 				nonJson++
